@@ -1,6 +1,18 @@
 # PyNext 🚀
 
-A Next.js-inspired file-based routing framework built on FastAPI for Python backend development.
+[![PyPI version](https://badge.fury.io/py/pynext.svg)](https://badge.fury.io/py/pynext)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A Next.js-inspired file-based routing framework built on FastAPI for Python backend development. PyNext makes building robust APIs as intuitive as creating files and folders.
+
+## Why PyNext?
+
+- 🚀 **Developer Experience**: Just like Next.js for React, PyNext makes backend development intuitive
+- ⚡ **Performance**: Built on FastAPI, one of the fastest Python frameworks
+- 🛡️ **Production Ready**: Security, middleware, and error handling built-in
+- 🎯 **Type Safe**: Full typing support with automatic validation
+- 📁 **Intuitive**: File-based routing means your folder structure IS your API
 
 ## Features
 
@@ -19,6 +31,27 @@ A Next.js-inspired file-based routing framework built on FastAPI for Python back
 ```bash
 pip install pynext
 ```
+
+## Requirements
+
+- Python 3.8+
+- FastAPI
+- Uvicorn (for development server)
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Authentication](#authentication)
+- [Middleware](#middleware)
+- [Error Handling](#error-handling)
+- [CLI Commands](#cli-commands)
+- [Advanced Usage](#advanced-usage)
+- [Testing](#testing)
+- [Deployment](#production-deployment)
+- [API Reference](#api-reference)
+- [Examples](#examples)
+- [Contributing](#contributing)
 
 ## Quick Start
 
@@ -96,6 +129,14 @@ pynext dev
 
 Visit `http://localhost:8000` to see your API!
 
+## API Documentation
+
+Once your server is running, you can access:
+
+- **Interactive API Documentation**: `http://localhost:8000/docs` (Swagger UI)
+- **Alternative Documentation**: `http://localhost:8000/redoc` (ReDoc)
+- **OpenAPI JSON Schema**: `http://localhost:8000/openapi.json`
+
 ## Configuration
 
 PyNext uses environment variables for configuration. Create a `.env` file:
@@ -120,7 +161,36 @@ RATE_LIMIT_PERIOD=60
 
 # Database (example)
 DATABASE_URL=sqlite:///./app.db
+
+# Logging
+LOG_LEVEL=INFO
+
+# Static Files
+STATIC_FILES_ENABLED=true
+STATIC_FILES_PATH=static
+STATIC_FILES_URL=/static
+
+# JWT Settings
+JWT_ALGORITHM=HS256
+JWT_EXPIRY=3600
+JWT_REFRESH_EXPIRY=86400
 ```
+
+### Configuration Reference
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `DEBUG` | boolean | `true` | Enable debug mode |
+| `HOST` | string | `127.0.0.1` | Server host |
+| `PORT` | integer | `8000` | Server port |
+| `SECRET_KEY` | string | `dev-secret-key...` | Secret key for JWT |
+| `CORS_ORIGINS` | string | `*` | Comma-separated allowed origins |
+| `CORS_CREDENTIALS` | boolean | `true` | Allow credentials in CORS |
+| `RATE_LIMIT_ENABLED` | boolean | `false` | Enable rate limiting |
+| `RATE_LIMIT_CALLS` | integer | `100` | Requests per period |
+| `RATE_LIMIT_PERIOD` | integer | `60` | Rate limit period in seconds |
+| `LOG_LEVEL` | string | `INFO` | Logging level |
+| `DATABASE_URL` | string | `None` | Database connection URL |
 
 ## Authentication
 
@@ -365,6 +435,163 @@ pip install gunicorn
 gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
 ```
 
+## WebSockets
+
+PyNext supports WebSocket connections through FastAPI:
+
+```python
+# routes/ws/chat.py
+from fastapi import WebSocket
+from pynext import get_app
+
+app = get_app()
+
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message: {data}")
+```
+
+## API Reference
+
+### Core Functions
+
+#### `create_pynext_app(**kwargs)`
+Creates a PyNext application instance.
+
+**Parameters:**
+- `title` (str): API title
+- `description` (str): API description  
+- `version` (str): API version
+- `config` (PyNextConfig): Custom configuration
+
+**Returns:** PyNextApp instance
+
+#### `get_config()`
+Returns the global configuration instance.
+
+#### `load_config(env_file: str = None)`
+Loads configuration from environment file.
+
+### Authentication Functions
+
+#### `create_access_token(data: dict, expires_delta: timedelta = None)`
+Creates a JWT access token.
+
+#### `verify_token(token: str)`
+Verifies and decodes a JWT token.
+
+#### `hash_password(password: str)`
+Hashes a password using bcrypt.
+
+#### `verify_password(plain_password: str, hashed_password: str)`
+Verifies a password against its hash.
+
+### Error Functions
+
+#### `raise_validation_error(message: str, details: dict = None)`
+Raises a validation error (400).
+
+#### `raise_not_found(message: str = "Resource not found")`
+Raises a not found error (404).
+
+#### `raise_auth_error(message: str = "Authentication required")`
+Raises an authentication error (401).
+
+## Route Conventions
+
+### File Naming
+
+- `index.py` → Root path `/`
+- `users.py` → `/users`
+- `[id].py` → `/{id}` (dynamic parameter)
+- `[...slug].py` → `/{slug:path}` (catch-all)
+
+### HTTP Methods
+
+Export async functions named after HTTP methods:
+
+```python
+async def get():        # GET request
+async def post():       # POST request
+async def put():        # PUT request
+async def delete():     # DELETE request
+async def patch():      # PATCH request
+```
+
+### Request Handling
+
+```python
+from pynext import Request, JSONResponse
+
+async def post(request: Request):
+    # Get JSON body
+    body = await request.json()
+    
+    # Get path parameters
+    user_id = request.path_params.get("id")
+    
+    # Get query parameters
+    limit = request.query_params.get("limit", 10)
+    
+    # Get headers
+    auth_header = request.headers.get("authorization")
+    
+    return JSONResponse({"status": "success"})
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Import Error: No module named 'pynext'**
+```bash
+pip install pynext
+```
+
+**Routes not loading**
+- Ensure `routes/` directory exists in your project root
+- Check that route files have proper async function exports
+- Verify file naming conventions
+
+**Authentication not working**
+- Set a proper `SECRET_KEY` in production
+- Check that protected paths are correctly configured
+- Verify JWT token format and expiration
+
+**CORS Issues**
+- Configure `CORS_ORIGINS` in your `.env` file
+- Set `CORS_CREDENTIALS=true` if needed
+- Check that your frontend origin is included
+
+### Debug Mode
+
+Enable debug mode for detailed error messages:
+
+```env
+DEBUG=true
+LOG_LEVEL=DEBUG
+```
+
+## Performance Tips
+
+1. **Use async/await**: All route functions should be async
+2. **Enable compression**: Built-in gzip compression for responses
+3. **Configure rate limiting**: Protect against abuse
+4. **Use proper HTTP status codes**: For better client handling
+5. **Implement caching**: For frequently accessed data
+
+## Security Best Practices
+
+1. **Change default secret key** in production
+2. **Use HTTPS** in production
+3. **Configure CORS** properly
+4. **Implement rate limiting**
+5. **Validate all inputs**
+6. **Use environment variables** for sensitive data
+
 ## Examples
 
 Check out the `/example` directory for a complete example application demonstrating:
@@ -383,21 +610,115 @@ cd example
 pynext dev
 ```
 
+## Roadmap
+
+- [ ] Database integration helpers (SQLAlchemy, MongoDB)
+- [ ] Built-in caching mechanisms (Redis, in-memory)
+- [ ] WebSocket routing support
+- [ ] Background task queue integration
+- [ ] Plugin system
+- [ ] More authentication providers (OAuth, LDAP)
+- [ ] Performance monitoring and metrics
+- [ ] GraphQL support
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions! Here's how to get started:
+
+### Development Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Amanbig/pynext.git
+cd pynext
+```
+
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install development dependencies:
+```bash
+pip install -e .
+pip install pytest httpx
+```
+
+4. Run tests:
+```bash
+python -m pytest tests/
+```
+
+### Guidelines
+
+- Follow PEP 8 style guidelines
+- Add tests for new features
+- Update documentation
+- Create detailed commit messages
+- Open an issue before major changes
+
+### Reporting Issues
+
+Please include:
+- Python version
+- PyNext version
+- Minimal code example
+- Full error traceback
+- Expected vs actual behavior
+
+## Changelog
+
+### v0.1.0 (Latest)
+- Initial release
+- File-based routing system
+- JWT authentication
+- Middleware stack
+- CLI tools
+- Configuration management
+- Error handling system
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## Community
+
+- 📚 [Documentation](https://github.com/Amanbig/pynext)
+- 🐛 [Issue Tracker](https://github.com/Amanbig/pynext/issues)
+- 💬 [Discussions](https://github.com/Amanbig/pynext/discussions)
+- 📧 [Email](mailto:amanpreetsinghjhiwant7@gmail.com)
+
 ## Acknowledgments
 
-- Built on top of [FastAPI](https://fastapi.tiangolo.com/)
-- Inspired by [Next.js](https://nextjs.org/) file-based routing
-- Uses [Typer](https://typer.tiangolo.com/) for CLI
+- Built on top of [FastAPI](https://fastapi.tiangolo.com/) by Sebastián Ramirez
+- Inspired by [Next.js](https://nextjs.org/) file-based routing by Vercel
+- Uses [Typer](https://typer.tiangolo.com/) for CLI by Sebastián Ramirez
 - Password hashing with [Passlib](https://passlib.readthedocs.io/)
+- Testing with [pytest](https://pytest.org/) and [httpx](https://www.python-httpx.org/)
+
+## Related Projects
+
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern, fast web framework for Python
+- [Starlette](https://www.starlette.io/) - Lightweight ASGI framework
+- [Pydantic](https://pydantic-docs.helpmanual.io/) - Data validation using Python type hints
+- [Next.js](https://nextjs.org/) - React framework (inspiration)
+
+## Support
+
+If PyNext has been helpful to your project:
+
+- ⭐ Star the repo on GitHub
+- 🐛 Report bugs and request features
+- 📝 Contribute to documentation
+- 💰 [Sponsor the project](https://github.com/sponsors/Amanbig)
 
 ---
 
+<div align="center">
+
 **PyNext** - Making Python backend development as intuitive as frontend development! 🚀
+
+[Get Started](https://github.com/Amanbig/pynext) | [Documentation](https://github.com/Amanbig/pynext) | [Examples](https://github.com/Amanbig/pynext/tree/main/example)
+
+</div>
