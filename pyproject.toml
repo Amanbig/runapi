@@ -1,0 +1,29 @@
+# pynextapi/pyproject.toml
+[project]
+name = "pynext"
+version = "0.1.0"
+description = "A Next.js-inspired file-based routing framework built on FastAPI"
+readme = "README.md"
+authors = [{ name = "Amanpreet Singh", email = "amanpreetsinghjhiwant7@gmail.com" }]
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi>=0.103.0",
+    "uvicorn>=0.23.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+]
+keywords = ["fastapi", "framework", "file-based-routing", "nextjs"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.urls]
+Homepage = "https://github.com/Amanbig/pynext"
+Repository = "https://github.com/Amanbig/pynext"
