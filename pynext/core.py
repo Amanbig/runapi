@@ -148,8 +148,7 @@ class PyNextApp:
             
             # Include the router with proper prefix
             final_prefix = prefix if prefix else ""
-            route_router.prefix = final_prefix
-            self.app.include_router(route_router)
+            self.app.include_router(route_router, prefix=final_prefix)
             
             self.logger.debug(f"Loaded route: {route_file} with prefix: {final_prefix}")
             

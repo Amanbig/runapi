@@ -240,7 +240,8 @@ class SecurityHeadersMiddleware(PyNextMiddleware):
         
         # Remove server header if requested
         if not self.include_server:
-            response.headers.pop("Server", None)
+            if "Server" in response.headers:
+                del response.headers["Server"]
         
         # Add security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
