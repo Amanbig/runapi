@@ -67,6 +67,29 @@ def dev(
     console.print()
     
     try:
+        # Ensure we're in the correct working directory
+        import os
+        import sys
+        current_dir = os.getcwd()
+        
+        # Add current directory to Python path if not already there
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        
+        # Verify main.py can be imported before starting server
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("main", "main.py")
+            if spec is None:
+                raise ImportError("Cannot load main.py")
+            main_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(main_module)
+            console.print("✅ [green]main.py loaded successfully")
+        except Exception as e:
+            console.print(f"[red]❌ Error importing main.py: {e}")
+            console.print("[yellow]💡 Make sure main.py exists and runapi is installed in this environment")
+            raise typer.Exit(code=1)
+        
         # Run uvicorn with the FastAPI app
         uvicorn.run(
             "main:app",
@@ -74,9 +97,13 @@ def dev(
             port=config.port,
             reload=config.reload,
             log_level=config.log_level.lower(),
+            reload_dirs=[current_dir] if config.reload else None,
         )
     except KeyboardInterrupt:
         console.print("\n[yellow]👋 Server stopped")
+    except Exception as e:
+        console.print(f"[red]❌ Server error: {e}")
+        raise typer.Exit(code=1)
 
 
 @app.command()

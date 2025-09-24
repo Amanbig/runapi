@@ -669,7 +669,13 @@ Please include:
 
 ## Changelog
 
-### v0.1.0 (Latest)
+### v0.1.1 (Latest)
+- **Bug Fix**: Fixed `runapi dev` command failing to import main module
+- **Enhancement**: Improved CLI error handling and validation
+- **Enhancement**: Better Python path management for uvicorn integration
+- **Enhancement**: Added pre-validation of main.py before server startup
+
+### v0.1.0
 - Initial release
 - File-based routing system
 - JWT authentication

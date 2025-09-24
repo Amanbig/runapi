@@ -2,7 +2,7 @@
 RunApi - A Next.js-inspired file-based routing framework built on FastAPI
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Amanpreet Singh"
 __email__ = "amanpreetsinghjhiwant7@gmail.com"
 
