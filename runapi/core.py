@@ -1,4 +1,4 @@
-# pynextapi/core.py
+# runapiapi/core.py
 from fastapi import FastAPI, APIRouter
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -6,7 +6,7 @@ import importlib.util
 import logging
 from typing import List, Optional, Type, Dict, Any
 
-from .config import get_config, PyNextConfig
+from .config import get_config, RunApiConfig
 from .middleware import (
     CORSMiddleware,
     RequestLoggingMiddleware,
@@ -14,18 +14,18 @@ from .middleware import (
     AuthMiddleware,
     SecurityHeadersMiddleware,
     CompressionMiddleware,
-    PyNextMiddleware
+    RunApiMiddleware
 )
 from .errors import setup_error_handlers
 
 
-class PyNextApp:
-    """Enhanced PyNext application class with configuration and middleware support."""
+class RunApiApp:
+    """Enhanced RunApi application class with configuration and middleware support."""
     
-    def __init__(self, config: Optional[PyNextConfig] = None, **fastapi_kwargs):
+    def __init__(self, config: Optional[RunApiConfig] = None, **fastapi_kwargs):
         self.config = config or get_config()
         self.app = self._create_fastapi_app(**fastapi_kwargs)
-        self.middleware_stack: List[Type[PyNextMiddleware]] = []
+        self.middleware_stack: List[Type[RunApiMiddleware]] = []
         
         # Setup logging
         self._setup_logging()
@@ -47,8 +47,8 @@ class PyNextApp:
         # Merge config with kwargs
         app_kwargs = {
             "debug": self.config.debug,
-            "title": kwargs.get("title", "PyNext API"),
-            "description": kwargs.get("description", "API built with PyNext framework"),
+            "title": kwargs.get("title", "RunApi API"),
+            "description": kwargs.get("description", "API built with RunApi framework"),
             "version": kwargs.get("version", "1.0.0"),
         }
         app_kwargs.update(kwargs)
@@ -61,7 +61,7 @@ class PyNextApp:
             level=getattr(logging, self.config.log_level.upper()),
             format=self.config.log_format
         )
-        self.logger = logging.getLogger("pynext")
+        self.logger = logging.getLogger("runapi")
     
     def _setup_default_middleware(self):
         """Setup default middleware based on configuration."""
@@ -170,7 +170,7 @@ class PyNextApp:
         else:
             return f"/{route_name}"
     
-    def add_middleware(self, middleware_class: Type[PyNextMiddleware], **kwargs):
+    def add_middleware(self, middleware_class: Type[RunApiMiddleware], **kwargs):
         """Add custom middleware to the application."""
         self.app.add_middleware(middleware_class, **kwargs)
         self.middleware_stack.append(middleware_class)
@@ -204,16 +204,16 @@ class PyNextApp:
             **uvicorn_kwargs
         }
         
-        self.logger.info(f"Starting PyNext server on {run_kwargs['host']}:{run_kwargs['port']}")
+        self.logger.info(f"Starting RunApi server on {run_kwargs['host']}:{run_kwargs['port']}")
         uvicorn.run(self.app, **run_kwargs)
 
 
-def create_app(config: Optional[PyNextConfig] = None, **kwargs) -> FastAPI:
-    """Create a PyNext FastAPI application."""
-    pynext_app = PyNextApp(config=config, **kwargs)
-    return pynext_app.get_app()
+def create_app(config: Optional[RunApiConfig] = None, **kwargs) -> FastAPI:
+    """Create a RunApi FastAPI application."""
+    runapi_app = RunApiApp(config=config, **kwargs)
+    return runapi_app.get_app()
 
 
-def create_pynext_app(config: Optional[PyNextConfig] = None, **kwargs) -> PyNextApp:
-    """Create a PyNext application instance."""
-    return PyNextApp(config=config, **kwargs)
+def create_runapi_app(config: Optional[RunApiConfig] = None, **kwargs) -> RunApiApp:
+    """Create a RunApi application instance."""
+    return RunApiApp(config=config, **kwargs)

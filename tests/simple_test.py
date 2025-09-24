@@ -1,5 +1,5 @@
 """
-Simple test script for PyNext framework basic functionality
+Simple test script for RunApi framework basic functionality
 """
 import os
 import sys
@@ -10,8 +10,8 @@ def test_imports():
     """Test basic imports"""
     print("🧪 Testing imports...")
     try:
-        from pynext import create_pynext_app, PyNextConfig, get_config
-        from pynext import JSONResponse, ValidationError, create_access_token
+        from runapi import create_runapi_app, RunApiConfig, get_config
+        from runapi import JSONResponse, ValidationError, create_access_token
         print("✅ All imports successful!")
         return True
     except Exception as e:
@@ -23,10 +23,10 @@ def test_config():
     """Test configuration system"""
     print("🧪 Testing configuration...")
     try:
-        from pynext import PyNextConfig
+        from runapi import RunApiConfig
         
         # Test basic config creation
-        config = PyNextConfig()
+        config = RunApiConfig()
         assert hasattr(config, 'debug')
         assert hasattr(config, 'host')
         assert hasattr(config, 'port')
@@ -41,9 +41,9 @@ def test_app_creation():
     """Test basic app creation"""
     print("🧪 Testing app creation...")
     try:
-        from pynext import create_pynext_app
+        from runapi import create_runapi_app
         
-        app = create_pynext_app(title="Test API")
+        app = create_runapi_app(title="Test API")
         fastapi_app = app.get_app()
         
         assert fastapi_app.title == "Test API"
@@ -73,7 +73,7 @@ def test_error_handling():
     """Test error handling system"""
     print("🧪 Testing error handling...")
     try:
-        from pynext import ValidationError, create_error_response
+        from runapi import ValidationError, create_error_response
         
         # Test custom exception
         try:
@@ -97,13 +97,13 @@ def test_basic_routing():
     """Test basic routing with TestClient"""
     print("🧪 Testing basic routing...")
     try:
-        from pynext import create_pynext_app
+        from runapi import create_runapi_app
         from fastapi import APIRouter
         from fastapi.testclient import TestClient
         
         # Create app
-        pynext_app = create_pynext_app(title="Test API")
-        app = pynext_app.get_app()
+        runapi_app = create_runapi_app(title="Test API")
+        app = runapi_app.get_app()
         
         # Add a simple test route
         router = APIRouter()
@@ -132,7 +132,7 @@ def test_cli_functionality():
     """Test CLI basic functionality"""
     print("🧪 Testing CLI functionality...")
     try:
-        from pynext.cli import app as cli_app
+        from runapi.cli import app as cli_app
         
         # Test that CLI app is created
         assert cli_app is not None
@@ -146,7 +146,7 @@ def test_cli_functionality():
 
 def run_all_tests():
     """Run all simple tests"""
-    print("🚀 Running PyNext Simple Tests\n")
+    print("🚀 Running RunApi Simple Tests\n")
     
     tests = [
         test_imports,
@@ -177,7 +177,7 @@ def run_all_tests():
     print(f"❌ Failed: {failed}/{len(tests)}")
     
     if failed == 0:
-        print("🎉 All tests passed! PyNext framework basic functionality is working!")
+        print("🎉 All tests passed! RunApi framework basic functionality is working!")
         return True
     else:
         print(f"⚠️ {failed} test(s) failed.")

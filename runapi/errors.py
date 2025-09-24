@@ -1,5 +1,5 @@
 """
-Error handling system for PyNext framework
+Error handling system for RunApi framework
 """
 import traceback
 from typing import Dict, Any, Optional, Union
@@ -10,8 +10,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
 
 
-class PyNextException(Exception):
-    """Base exception class for PyNext framework."""
+class RunApiException(Exception):
+    """Base exception class for RunApi framework."""
     
     def __init__(
         self,
@@ -27,63 +27,63 @@ class PyNextException(Exception):
         super().__init__(self.message)
 
 
-class ValidationError(PyNextException):
+class ValidationError(RunApiException):
     """Raised when request validation fails."""
     
     def __init__(self, message: str = "Validation failed", details: Dict[str, Any] = None):
         super().__init__(message, 400, details, "VALIDATION_ERROR")
 
 
-class AuthenticationError(PyNextException):
+class AuthenticationError(RunApiException):
     """Raised when authentication fails."""
     
     def __init__(self, message: str = "Authentication required", details: Dict[str, Any] = None):
         super().__init__(message, 401, details, "AUTHENTICATION_ERROR")
 
 
-class AuthorizationError(PyNextException):
+class AuthorizationError(RunApiException):
     """Raised when authorization fails."""
     
     def __init__(self, message: str = "Insufficient permissions", details: Dict[str, Any] = None):
         super().__init__(message, 403, details, "AUTHORIZATION_ERROR")
 
 
-class NotFoundError(PyNextException):
+class NotFoundError(RunApiException):
     """Raised when a resource is not found."""
     
     def __init__(self, message: str = "Resource not found", details: Dict[str, Any] = None):
         super().__init__(message, 404, details, "NOT_FOUND_ERROR")
 
 
-class ConflictError(PyNextException):
+class ConflictError(RunApiException):
     """Raised when there's a conflict with the current state."""
     
     def __init__(self, message: str = "Conflict with current state", details: Dict[str, Any] = None):
         super().__init__(message, 409, details, "CONFLICT_ERROR")
 
 
-class RateLimitError(PyNextException):
+class RateLimitError(RunApiException):
     """Raised when rate limit is exceeded."""
     
     def __init__(self, message: str = "Rate limit exceeded", details: Dict[str, Any] = None):
         super().__init__(message, 429, details, "RATE_LIMIT_ERROR")
 
 
-class ServerError(PyNextException):
+class ServerError(RunApiException):
     """Raised when an internal server error occurs."""
     
     def __init__(self, message: str = "Internal server error", details: Dict[str, Any] = None):
         super().__init__(message, 500, details, "SERVER_ERROR")
 
 
-class DatabaseError(PyNextException):
+class DatabaseError(RunApiException):
     """Raised when database operations fail."""
     
     def __init__(self, message: str = "Database operation failed", details: Dict[str, Any] = None):
         super().__init__(message, 500, details, "DATABASE_ERROR")
 
 
-class ExternalServiceError(PyNextException):
+class ExternalServiceError(RunApiException):
     """Raised when external service calls fail."""
     
     def __init__(self, message: str = "External service error", details: Dict[str, Any] = None):
@@ -140,10 +140,10 @@ class ErrorHandler:
         self.logger = logger or logging.getLogger(__name__)
         self.debug = debug
     
-    def handle_pynext_exception(self, request: Request, exc: PyNextException) -> JSONResponse:
-        """Handle PyNext custom exceptions."""
+    def handle_runapi_exception(self, request: Request, exc: RunApiException) -> JSONResponse:
+        """Handle RunApi custom exceptions."""
         self.logger.warning(
-            f"PyNext exception: {exc.error_code} - {exc.message}",
+            f"RunApi exception: {exc.error_code} - {exc.message}",
             extra={"status_code": exc.status_code, "details": exc.details}
         )
         
@@ -222,9 +222,9 @@ def setup_error_handlers(app, logger: Optional[logging.Logger] = None, debug: bo
     """Setup error handlers for a FastAPI application."""
     handler = ErrorHandler(logger, debug)
     
-    @app.exception_handler(PyNextException)
-    async def pynext_exception_handler(request: Request, exc: PyNextException):
-        return handler.handle_pynext_exception(request, exc)
+    @app.exception_handler(RunApiException)
+    async def runapi_exception_handler(request: Request, exc: RunApiException):
+        return handler.handle_runapi_exception(request, exc)
     
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):

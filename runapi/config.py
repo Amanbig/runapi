@@ -3,8 +3,8 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 
 
-class PyNextConfig:
-    """Configuration management for PyNext framework."""
+class RunApiConfig:
+    """Configuration management for RunApi framework."""
     
     def __init__(self, env_file: Optional[str] = None):
         self.env_file = env_file or ".env"
@@ -126,16 +126,16 @@ class PyNextConfig:
 
 
 # Global configuration instance
-config = PyNextConfig()
+config = RunApiConfig()
 
 
-def get_config() -> PyNextConfig:
+def get_config() -> RunApiConfig:
     """Get the global configuration instance."""
     return config
 
 
-def load_config(env_file: Optional[str] = None) -> PyNextConfig:
+def load_config(env_file: Optional[str] = None) -> RunApiConfig:
     """Load configuration with optional custom env file."""
     global config
-    config = PyNextConfig(env_file)
+    config = RunApiConfig(env_file)
     return config

@@ -1,5 +1,5 @@
 [project]
-name = "pynext"
+name = "runapi"
 version = "0.1.0"
 description = "A Next.js-inspired file-based routing framework built on FastAPI"
 readme = "README.md"
@@ -43,11 +43,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.urls]
-Homepage = "https://github.com/Amanbig/pynext"
-Repository = "https://github.com/Amanbig/pynext"
-Documentation = "https://github.com/Amanbig/pynext#readme"
-Issues = "https://github.com/Amanbig/pynext/issues"
-Changelog = "https://github.com/Amanbig/pynext/releases"
+Homepage = "https://github.com/Amanbig/runapi"
+Repository = "https://github.com/Amanbig/runapi"
+Documentation = "https://github.com/Amanbig/runapi#readme"
+Issues = "https://github.com/Amanbig/runapi/issues"
+Changelog = "https://github.com/Amanbig/runapi/releases"
 
 [project.optional-dependencies]
 dev = [
@@ -65,4 +65,4 @@ test = [
 ]
 
 [project.scripts]
-pynext = "pynext.cli:main"
+runapi = "runapi.cli:main"

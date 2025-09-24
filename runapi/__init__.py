@@ -1,5 +1,5 @@
 """
-PyNext - A Next.js-inspired file-based routing framework built on FastAPI
+RunApi - A Next.js-inspired file-based routing framework built on FastAPI
 """
 
 __version__ = "0.1.0"
@@ -7,14 +7,14 @@ __author__ = "Amanpreet Singh"
 __email__ = "amanpreetsinghjhiwant7@gmail.com"
 
 # Core framework
-from .core import create_app, create_pynext_app, PyNextApp
+from .core import create_app, create_runapi_app, RunApiApp
 
 # Configuration
-from .config import PyNextConfig, get_config, load_config
+from .config import RunApiConfig, get_config, load_config
 
 # Error handling
 from .errors import (
-    PyNextException,
+    RunApiException,
     ValidationError,
     AuthenticationError,
     AuthorizationError,
@@ -68,7 +68,7 @@ from .auth import (
 
 # Middleware
 from .middleware import (
-    PyNextMiddleware,
+    RunApiMiddleware,
     RequestLoggingMiddleware,
     RateLimitMiddleware,
     AuthMiddleware,
@@ -89,16 +89,16 @@ from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
 __all__ = [
     # Core
     "create_app",
-    "create_pynext_app", 
-    "PyNextApp",
+    "create_runapi_app", 
+    "RunApiApp",
     
     # Configuration
-    "PyNextConfig",
+    "RunApiConfig",
     "get_config",
     "load_config",
     
     # Error handling
-    "PyNextException",
+    "RunApiException",
     "ValidationError",
     "AuthenticationError",
     "AuthorizationError",
@@ -148,7 +148,7 @@ __all__ = [
     "api_key_manager",
     
     # Middleware
-    "PyNextMiddleware",
+    "RunApiMiddleware",
     "RequestLoggingMiddleware",
     "RateLimitMiddleware", 
     "AuthMiddleware",

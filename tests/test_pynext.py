@@ -1,5 +1,5 @@
 """
-Comprehensive test script for PyNext framework functionality
+Comprehensive test script for RunApi framework functionality
 Tests core features including routing, middleware, authentication, and configuration
 """
 import asyncio
@@ -14,21 +14,21 @@ from fastapi.testclient import TestClient
 
 
 def test_basic_app_creation():
-    """Test basic PyNext app creation"""
+    """Test basic RunApi app creation"""
     print("🧪 Testing basic app creation...")
     
-    from pynext import create_pynext_app
+    from runapi import create_runapi_app
     
-    app = create_pynext_app(
+    app = create_runapi_app(
         title="Test API",
-        description="Test PyNext API",
+        description="Test RunApi API",
         version="1.0.0"
     )
     
     fastapi_app = app.get_app()
     
     assert fastapi_app.title == "Test API"
-    assert fastapi_app.description == "Test PyNext API"
+    assert fastapi_app.description == "Test RunApi API"
     assert fastapi_app.version == "1.0.0"
     
     print("✅ Basic app creation test passed!")
@@ -38,7 +38,7 @@ def test_configuration_system():
     """Test configuration management"""
     print("🧪 Testing configuration system...")
     
-    from pynext.config import PyNextConfig
+    from runapi.config import RunApiConfig
     
     # Test with environment variables
     os.environ['DEBUG'] = 'true'
@@ -46,7 +46,7 @@ def test_configuration_system():
     os.environ['PORT'] = '9000'
     os.environ['SECRET_KEY'] = 'test-secret-key'
     
-    config = PyNextConfig()
+    config = RunApiConfig()
     
     assert config.debug == True
     assert config.host == '0.0.0.0'
@@ -60,7 +60,7 @@ def test_error_handling():
     """Test error handling system"""
     print("🧪 Testing error handling...")
     
-    from pynext import ValidationError, NotFoundError, create_error_response
+    from runapi import ValidationError, NotFoundError, create_error_response
     
     # Test custom exceptions
     try:
@@ -86,7 +86,7 @@ def test_authentication_system():
     """Test JWT authentication system"""
     print("🧪 Testing authentication system...")
     
-    from pynext import create_access_token, verify_token
+    from runapi import create_access_token, verify_token
     
     # Test token creation and verification
     user_data = {
@@ -120,7 +120,7 @@ def test_file_based_routing():
         
         # Create a simple route file
         index_route = '''
-from pynext import JSONResponse
+from runapi import JSONResponse
 
 async def get():
     return JSONResponse({"message": "Hello from test route!"})
@@ -134,7 +134,7 @@ async def get():
         (api_path / "__init__.py").touch()
         
         test_route = '''
-from pynext import JSONResponse, Request
+from runapi import JSONResponse, Request
 
 async def get():
     return JSONResponse({"endpoint": "test", "method": "GET"})
@@ -150,8 +150,8 @@ async def post(request: Request):
         try:
             os.chdir(temp_dir)
             
-            from pynext import create_pynext_app
-            app = create_pynext_app()
+            from runapi import create_runapi_app
+            app = create_runapi_app()
             fastapi_app = app.get_app()
             
             # Test with TestClient
@@ -185,16 +185,16 @@ def test_middleware_system():
     """Test middleware system"""
     print("🧪 Testing middleware system...")
     
-    from pynext import create_pynext_app, PyNextMiddleware
+    from runapi import create_runapi_app, RunApiMiddleware
     
     # Custom test middleware
-    class TestMiddleware(PyNextMiddleware):
+    class TestMiddleware(RunApiMiddleware):
         async def dispatch(self, request, call_next):
             response = await call_next(request)
             response.headers["X-Test-Middleware"] = "active"
             return response
     
-    app = create_pynext_app()
+    app = create_runapi_app()
     app.add_middleware(TestMiddleware)
     
     # Create a simple route for testing
@@ -232,7 +232,7 @@ def test_dynamic_routes():
         
         # Create dynamic route [id].py
         dynamic_route = '''
-from pynext import JSONResponse, Request
+from runapi import JSONResponse, Request
 
 async def get(request: Request):
     user_id = request.path_params.get("id")
@@ -257,8 +257,8 @@ async def put(request: Request):
         try:
             os.chdir(temp_dir)
             
-            from pynext import create_pynext_app
-            app = create_pynext_app()
+            from runapi import create_runapi_app
+            app = create_runapi_app()
             fastapi_app = app.get_app()
             
             with TestClient(fastapi_app) as client:
@@ -291,8 +291,8 @@ def test_cors_configuration():
     os.environ['CORS_ORIGINS'] = 'http://localhost:3000,http://localhost:8080'
     os.environ['CORS_CREDENTIALS'] = 'true'
     
-    from pynext import create_pynext_app
-    app = create_pynext_app()
+    from runapi import create_runapi_app
+    app = create_runapi_app()
     
     with TestClient(app.get_app()) as client:
         # Test preflight request
@@ -327,8 +327,8 @@ def test_static_file_serving():
         try:
             os.chdir(temp_dir)
             
-            from pynext import create_pynext_app
-            app = create_pynext_app()
+            from runapi import create_runapi_app
+            app = create_runapi_app()
             
             with TestClient(app.get_app()) as client:
                 response = client.get("/static/test.txt")
@@ -343,7 +343,7 @@ def test_static_file_serving():
 
 def run_all_tests():
     """Run all tests"""
-    print("🚀 Starting PyNext Framework Tests\n")
+    print("🚀 Starting RunApi Framework Tests\n")
     
     tests = [
         test_basic_app_creation,
@@ -374,7 +374,7 @@ def run_all_tests():
     print(f"📈 Success Rate: {passed/(passed+failed)*100:.1f}%")
     
     if failed == 0:
-        print("\n🎉 All tests passed! PyNext framework is working correctly.")
+        print("\n🎉 All tests passed! RunApi framework is working correctly.")
     else:
         print(f"\n⚠️  {failed} test(s) failed. Please check the output above.")
     

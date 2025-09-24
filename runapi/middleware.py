@@ -10,15 +10,15 @@ from collections import defaultdict
 import asyncio
 
 
-class PyNextMiddleware(BaseHTTPMiddleware):
-    """Base middleware class for PyNext framework."""
+class RunApiMiddleware(BaseHTTPMiddleware):
+    """Base middleware class for RunApi framework."""
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Override this method in subclasses."""
         return await call_next(request)
 
 
-class RequestLoggingMiddleware(PyNextMiddleware):
+class RequestLoggingMiddleware(RunApiMiddleware):
     """Middleware for logging HTTP requests and responses."""
     
     def __init__(self, app, logger: Optional[logging.Logger] = None):
@@ -47,7 +47,7 @@ class RequestLoggingMiddleware(PyNextMiddleware):
         return response
 
 
-class RateLimitMiddleware(PyNextMiddleware):
+class RateLimitMiddleware(RunApiMiddleware):
     """Rate limiting middleware using in-memory storage."""
     
     def __init__(
@@ -110,7 +110,7 @@ class RateLimitMiddleware(PyNextMiddleware):
         return response
 
 
-class AuthMiddleware(PyNextMiddleware):
+class AuthMiddleware(RunApiMiddleware):
     """JWT-based authentication middleware."""
     
     def __init__(
@@ -220,7 +220,7 @@ class AuthMiddleware(PyNextMiddleware):
         return await call_next(request)
 
 
-class SecurityHeadersMiddleware(PyNextMiddleware):
+class SecurityHeadersMiddleware(RunApiMiddleware):
     """Add security headers to responses."""
     
     def __init__(
@@ -260,7 +260,7 @@ class SecurityHeadersMiddleware(PyNextMiddleware):
         return response
 
 
-class CompressionMiddleware(PyNextMiddleware):
+class CompressionMiddleware(RunApiMiddleware):
     """Simple compression middleware for JSON responses."""
     
     def __init__(self, app, minimum_size: int = 1000):

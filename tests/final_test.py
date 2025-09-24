@@ -1,5 +1,5 @@
 """
-Final Comprehensive Test Suite for PyNext Framework
+Final Comprehensive Test Suite for RunApi Framework
 Tests all major functionality and ensures everything works correctly
 """
 import os
@@ -11,14 +11,14 @@ from fastapi.testclient import TestClient
 
 
 def test_framework_installation():
-    """Test that PyNext is properly installed and importable"""
-    print("🧪 Testing PyNext installation...")
+    """Test that RunApi is properly installed and importable"""
+    print("🧪 Testing RunApi installation...")
     try:
-        import pynext
-        from pynext import create_pynext_app, PyNextConfig, get_config
-        from pynext import JSONResponse, ValidationError, create_access_token
-        print("✅ PyNext framework imports successfully!")
-        print(f"   Version: {getattr(pynext, '__version__', 'unknown')}")
+        import runapi
+        from runapi import create_runapi_app, RunApiConfig, get_config
+        from runapi import JSONResponse, ValidationError, create_access_token
+        print("✅ RunApi framework imports successfully!")
+        print(f"   Version: {getattr(runapi, '__version__', 'unknown')}")
         return True
     except Exception as e:
         print(f"❌ Import failed: {e}")
@@ -30,9 +30,9 @@ def test_cli_functionality():
     print("🧪 Testing CLI functionality...")
     try:
         import subprocess
-        result = subprocess.run(['pynext', '--help'], 
+        result = subprocess.run(['runapi', '--help'], 
                               capture_output=True, text=True, timeout=10)
-        if result.returncode == 0 and 'PyNext' in result.stdout:
+        if result.returncode == 0 and 'RunApi' in result.stdout:
             print("✅ CLI is working correctly!")
             return True
         else:
@@ -44,13 +44,13 @@ def test_cli_functionality():
 
 
 def test_basic_app_creation():
-    """Test basic PyNext app creation and configuration"""
+    """Test basic RunApi app creation and configuration"""
     print("🧪 Testing basic app creation...")
     try:
-        from pynext import create_pynext_app, get_config
+        from runapi import create_runapi_app, get_config
         
         # Test app creation
-        app = create_pynext_app(
+        app = create_runapi_app(
             title="Test API",
             description="Test Description", 
             version="1.0.0"
@@ -87,7 +87,7 @@ def test_file_based_routing():
             
             # Create index route
             index_content = '''
-from pynext import JSONResponse
+from runapi import JSONResponse
 
 async def get():
     return JSONResponse({"message": "Hello from index", "route": "index"})
@@ -100,7 +100,7 @@ async def get():
             (api_path / "__init__.py").touch()
             
             api_content = '''
-from pynext import JSONResponse, Request
+from runapi import JSONResponse, Request
 
 async def get():
     return JSONResponse({"message": "API endpoint", "method": "GET"})
@@ -116,7 +116,7 @@ async def post(request: Request):
             (users_path / "__init__.py").touch()
             
             dynamic_content = '''
-from pynext import JSONResponse, Request
+from runapi import JSONResponse, Request
 
 async def get(request: Request):
     user_id = request.path_params.get("id", "unknown")
@@ -129,8 +129,8 @@ async def get(request: Request):
             try:
                 os.chdir(temp_dir)
                 
-                from pynext import create_pynext_app
-                app = create_pynext_app()
+                from runapi import create_runapi_app
+                app = create_runapi_app()
                 
                 with TestClient(app.get_app()) as client:
                     # Test index route
@@ -174,9 +174,9 @@ def test_middleware_and_security():
     """Test middleware functionality and security features"""
     print("🧪 Testing middleware and security...")
     try:
-        from pynext import create_pynext_app
+        from runapi import create_runapi_app
         
-        app = create_pynext_app()
+        app = create_runapi_app()
         
         with TestClient(app.get_app()) as client:
             # Test that security headers are added
@@ -200,7 +200,7 @@ def test_error_handling():
     """Test error handling system"""
     print("🧪 Testing error handling...")
     try:
-        from pynext import ValidationError, NotFoundError, create_error_response
+        from runapi import ValidationError, NotFoundError, create_error_response
         
         # Test custom exceptions
         try:
@@ -269,9 +269,9 @@ def test_documentation_generation():
     """Test automatic API documentation generation"""
     print("🧪 Testing API documentation generation...")
     try:
-        from pynext import create_pynext_app
+        from runapi import create_runapi_app
         
-        app = create_pynext_app(
+        app = create_runapi_app(
             title="Documentation Test API",
             description="Testing automatic docs generation"
         )
@@ -304,7 +304,7 @@ def test_documentation_generation():
 
 def run_comprehensive_tests():
     """Run all comprehensive tests"""
-    print("🚀 PyNext Framework - Final Comprehensive Test Suite")
+    print("🚀 RunApi Framework - Final Comprehensive Test Suite")
     print("=" * 60)
     print()
     
@@ -356,7 +356,7 @@ def run_comprehensive_tests():
     print()
     
     if failed == 0:
-        print("🎉 ALL TESTS PASSED! PyNext framework is working perfectly!")
+        print("🎉 ALL TESTS PASSED! RunApi framework is working perfectly!")
         print("🚀 The framework is ready for production use!")
         print()
         print("✨ Features successfully tested:")

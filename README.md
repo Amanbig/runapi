@@ -1,14 +1,14 @@
-# PyNext 🚀
+# Runapi 🚀
 
-[![PyPI version](https://badge.fury.io/py/pynext.svg)](https://badge.fury.io/py/pynext)
+[![PyPI version](https://badge.fury.io/py/runapi.svg)](https://badge.fury.io/py/runapi)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Next.js-inspired file-based routing framework built on FastAPI for Python backend development. PyNext makes building robust APIs as intuitive as creating files and folders.
+A Next.js-inspired file-based routing framework built on FastAPI for Python backend development. runapi makes building robust APIs as intuitive as creating files and folders.
 
-## Why PyNext?
+## Why Runapi?
 
-- 🚀 **Developer Experience**: Just like Next.js for React, PyNext makes backend development intuitive
+- 🚀 **Developer Experience**: Just like Next.js for React, runapi makes backend development intuitive
 - ⚡ **Performance**: Built on FastAPI, one of the fastest Python frameworks
 - 🛡️ **Production Ready**: Security, middleware, and error handling built-in
 - 🎯 **Type Safe**: Full typing support with automatic validation
@@ -29,7 +29,7 @@ A Next.js-inspired file-based routing framework built on FastAPI for Python back
 ## Installation
 
 ```bash
-pip install pynext
+pip install runapi
 ```
 
 ## Requirements
@@ -58,7 +58,7 @@ pip install pynext
 ### 1. Create a new project
 
 ```bash
-pynext init my-api
+runapi init my-api
 cd my-api
 ```
 
@@ -85,15 +85,15 @@ Routes are created by adding Python files in the `routes/` directory:
 
 **routes/index.py** (GET /)
 ```python
-from pynext import JSONResponse
+from runapi import JSONResponse
 
 async def get():
-    return JSONResponse({"message": "Hello PyNext!"})
+    return JSONResponse({"message": "Hello runapi!"})
 ```
 
 **routes/api/users.py** (GET,POST /api/users)
 ```python
-from pynext import JSONResponse, Request
+from runapi import JSONResponse, Request
 
 async def get():
     return JSONResponse({"users": []})
@@ -105,7 +105,7 @@ async def post(request: Request):
 
 **routes/api/users/[id].py** (GET,PUT,DELETE /api/users/{id})
 ```python
-from pynext import JSONResponse, Request
+from runapi import JSONResponse, Request
 
 async def get(request: Request):
     user_id = request.path_params["id"]
@@ -124,7 +124,7 @@ async def delete(request: Request):
 ### 4. Run development server
 
 ```bash
-pynext dev
+runapi dev
 ```
 
 Visit `http://localhost:8000` to see your API!
@@ -139,7 +139,7 @@ Once your server is running, you can access:
 
 ## Configuration
 
-PyNext uses environment variables for configuration. Create a `.env` file:
+runapi uses environment variables for configuration. Create a `.env` file:
 
 ```env
 # Server Settings
@@ -194,15 +194,15 @@ JWT_REFRESH_EXPIRY=86400
 
 ## Authentication
 
-PyNext includes built-in JWT authentication:
+runapi includes built-in JWT authentication:
 
 ### Enable Authentication Middleware
 
 **main.py**
 ```python
-from pynext import create_pynext_app
+from runapi import create_runapi_app
 
-app = create_pynext_app()
+app = create_runapi_app()
 
 # Protect specific routes
 app.add_auth_middleware(
@@ -215,7 +215,7 @@ app.add_auth_middleware(
 
 **routes/api/auth/login.py**
 ```python
-from pynext import JSONResponse, Request, create_token_response, verify_password
+from runapi import JSONResponse, Request, create_token_response, verify_password
 
 async def post(request: Request):
     body = await request.json()
@@ -235,7 +235,7 @@ async def post(request: Request):
 
 **routes/api/protected.py**
 ```python
-from pynext import JSONResponse, get_current_user, Depends
+from runapi import JSONResponse, get_current_user, Depends
 
 async def get(current_user: dict = Depends(get_current_user())):
     return JSONResponse({
@@ -246,12 +246,12 @@ async def get(current_user: dict = Depends(get_current_user())):
 
 ## Middleware
 
-PyNext includes several built-in middleware:
+runapi includes several built-in middleware:
 
 ```python
-from pynext import create_pynext_app
+from runapi import create_runapi_app
 
-app = create_pynext_app()
+app = create_runapi_app()
 
 # Built-in middleware (automatically configured via .env)
 # - CORS
@@ -261,9 +261,9 @@ app = create_pynext_app()
 # - Compression
 
 # Add custom middleware
-from pynext import PyNextMiddleware
+from runapi import runapiMiddleware
 
-class CustomMiddleware(PyNextMiddleware):
+class CustomMiddleware(runapiMiddleware):
     async def dispatch(self, request, call_next):
         # Pre-processing
         response = await call_next(request)
@@ -275,10 +275,10 @@ app.add_middleware(CustomMiddleware)
 
 ## Error Handling
 
-PyNext provides comprehensive error handling:
+runapi provides comprehensive error handling:
 
 ```python
-from pynext import ValidationError, NotFoundError, raise_not_found
+from runapi import ValidationError, NotFoundError, raise_not_found
 
 async def get_user(user_id: str):
     if not user_id:
@@ -293,25 +293,25 @@ async def get_user(user_id: str):
 
 ## CLI Commands
 
-PyNext includes a powerful CLI for development:
+runapi includes a powerful CLI for development:
 
 ```bash
 # Create new project
-pynext init my-project
+runapi init my-project
 
 # Run development server
-pynext dev
+runapi dev
 
 # Generate boilerplate code
-pynext generate route users
-pynext generate middleware auth
-pynext generate main
+runapi generate route users
+runapi generate middleware auth
+runapi generate main
 
 # List all routes
-pynext routes
+runapi routes
 
 # Show project info
-pynext info
+runapi info
 ```
 
 ## Advanced Usage
@@ -320,15 +320,15 @@ pynext info
 
 **main.py**
 ```python
-from pynext import create_pynext_app, get_config
+from runapi import create_runapi_app, get_config
 
 # Load custom configuration
 config = get_config()
 
 # Create app with custom settings
-app = create_pynext_app(
+app = create_runapi_app(
     title="My API",
-    description="Built with PyNext",
+    description="Built with runapi",
     version="1.0.0"
 )
 
@@ -349,7 +349,7 @@ fastapi_app = app.get_app()
 ```python
 # Using SQLAlchemy (example)
 from sqlalchemy import create_engine
-from pynext import get_config
+from runapi import get_config
 
 config = get_config()
 engine = create_engine(config.database_url)
@@ -364,7 +364,7 @@ async def get_users():
 
 ```python
 from fastapi import BackgroundTasks
-from pynext import JSONResponse
+from runapi import JSONResponse
 
 async def send_email(email: str):
     # Send email logic
@@ -378,7 +378,7 @@ async def post(request: Request, background_tasks: BackgroundTasks):
 
 ## Dynamic Routes
 
-PyNext supports dynamic route parameters:
+runapi supports dynamic route parameters:
 
 - `routes/users/[id].py` → `/users/{id}`
 - `routes/posts/[slug].py` → `/posts/{slug}`  
@@ -388,7 +388,7 @@ PyNext supports dynamic route parameters:
 
 ```python
 from fastapi import UploadFile, File
-from pynext import JSONResponse
+from runapi import JSONResponse
 
 async def post(file: UploadFile = File(...)):
     contents = await file.read()
@@ -407,7 +407,7 @@ client = TestClient(app.get_app())
 def test_read_main():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["message"] == "Hello PyNext!"
+    assert response.json()["message"] == "Hello runapi!"
 ```
 
 ## Production Deployment
@@ -437,12 +437,12 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
 
 ## WebSockets
 
-PyNext supports WebSocket connections through FastAPI:
+runapi supports WebSocket connections through FastAPI:
 
 ```python
 # routes/ws/chat.py
 from fastapi import WebSocket
-from pynext import get_app
+from runapi import get_app
 
 app = get_app()
 
@@ -458,16 +458,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
 ### Core Functions
 
-#### `create_pynext_app(**kwargs)`
-Creates a PyNext application instance.
+#### `create_runapi_app(**kwargs)`
+Creates a runapi application instance.
 
 **Parameters:**
 - `title` (str): API title
 - `description` (str): API description  
 - `version` (str): API version
-- `config` (PyNextConfig): Custom configuration
+- `config` (runapiConfig): Custom configuration
 
-**Returns:** PyNextApp instance
+**Returns:** runapiApp instance
 
 #### `get_config()`
 Returns the global configuration instance.
@@ -524,7 +524,7 @@ async def patch():      # PATCH request
 ### Request Handling
 
 ```python
-from pynext import Request, JSONResponse
+from runapi import Request, JSONResponse
 
 async def post(request: Request):
     # Get JSON body
@@ -546,9 +546,9 @@ async def post(request: Request):
 
 ### Common Issues
 
-**Import Error: No module named 'pynext'**
+**Import Error: No module named 'runapi'**
 ```bash
-pip install pynext
+pip install runapi
 ```
 
 **Routes not loading**
@@ -607,7 +607,7 @@ Run the example:
 
 ```bash
 cd example
-pynext dev
+runapi dev
 ```
 
 ## Roadmap
@@ -629,8 +629,8 @@ We welcome contributions! Here's how to get started:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Amanbig/pynext.git
-cd pynext
+git clone https://github.com/Amanbig/runapi.git
+cd runapi
 ```
 
 2. Create a virtual environment:
@@ -662,7 +662,7 @@ python -m pytest tests/
 
 Please include:
 - Python version
-- PyNext version
+- runapi version
 - Minimal code example
 - Full error traceback
 - Expected vs actual behavior
@@ -684,9 +684,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Community
 
-- 📚 [Documentation](https://github.com/Amanbig/pynext)
-- 🐛 [Issue Tracker](https://github.com/Amanbig/pynext/issues)
-- 💬 [Discussions](https://github.com/Amanbig/pynext/discussions)
+- 📚 [Documentation](https://github.com/Amanbig/runapi)
+- 🐛 [Issue Tracker](https://github.com/Amanbig/runapi/issues)
+- 💬 [Discussions](https://github.com/Amanbig/runapi/discussions)
 - 📧 [Email](mailto:amanpreetsinghjhiwant7@gmail.com)
 
 ## Acknowledgments
@@ -706,7 +706,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-If PyNext has been helpful to your project:
+If runapi has been helpful to your project:
 
 - ⭐ Star the repo on GitHub
 - 🐛 Report bugs and request features
@@ -717,8 +717,8 @@ If PyNext has been helpful to your project:
 
 <div align="center">
 
-**PyNext** - Making Python backend development as intuitive as frontend development! 🚀
+**runapi** - Making Python backend development as intuitive as frontend development! 🚀
 
-[Get Started](https://github.com/Amanbig/pynext) | [Documentation](https://github.com/Amanbig/pynext) | [Examples](https://github.com/Amanbig/pynext/tree/main/example)
+[Get Started](https://github.com/Amanbig/runapi) | [Documentation](https://github.com/Amanbig/runapi) | [Examples](https://github.com/Amanbig/runapi/tree/main/example)
 
 </div>
