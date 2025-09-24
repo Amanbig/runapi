@@ -1,4 +1,4 @@
-# runapiapi/cli.py
+# runapi/cli.py
 import typer
 import uvicorn
 from rich.console import Console

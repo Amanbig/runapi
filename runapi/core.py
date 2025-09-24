@@ -1,4 +1,4 @@
-# runapiapi/core.py
+# runapi/core.py
 from fastapi import FastAPI, APIRouter
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path

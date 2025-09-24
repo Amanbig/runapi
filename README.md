@@ -261,9 +261,9 @@ app = create_runapi_app()
 # - Compression
 
 # Add custom middleware
-from runapi import runapiMiddleware
+from runapi import RunApiMiddleware
 
-class CustomMiddleware(runapiMiddleware):
+class CustomMiddleware(RunApiMiddleware):
     async def dispatch(self, request, call_next):
         # Pre-processing
         response = await call_next(request)
