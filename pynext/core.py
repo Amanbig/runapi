@@ -16,6 +16,7 @@ from .middleware import (
     CompressionMiddleware,
     PyNextMiddleware
 )
+from .errors import setup_error_handlers
 
 
 class PyNextApp:
@@ -31,6 +32,9 @@ class PyNextApp:
         
         # Setup default middleware
         self._setup_default_middleware()
+        
+        # Setup error handlers
+        self._setup_error_handlers()
         
         # Load routes
         self._load_routes()
@@ -93,6 +97,10 @@ class PyNextApp:
         
         # Compression middleware
         self.app.add_middleware(CompressionMiddleware)
+    
+    def _setup_error_handlers(self):
+        """Setup error handlers for the application."""
+        setup_error_handlers(self.app, self.logger, self.config.debug)
     
     def _setup_static_files(self):
         """Setup static file serving."""
