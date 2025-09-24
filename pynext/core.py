@@ -1,45 +1,216 @@
 # pynextapi/core.py
 from fastapi import FastAPI, APIRouter
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import importlib.util
+import logging
+from typing import List, Optional, Type, Dict, Any
 
-def create_app(**kwargs) -> FastAPI:
-    """Create a FastAPI app with PyNext routing."""
-    app = FastAPI(**kwargs)
+from .config import get_config, PyNextConfig
+from .middleware import (
+    CORSMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware,
+    AuthMiddleware,
+    SecurityHeadersMiddleware,
+    CompressionMiddleware,
+    PyNextMiddleware
+)
+
+
+class PyNextApp:
+    """Enhanced PyNext application class with configuration and middleware support."""
     
-    def load_routes(routes_dir: Path, prefix: str = ""):
+    def __init__(self, config: Optional[PyNextConfig] = None, **fastapi_kwargs):
+        self.config = config or get_config()
+        self.app = self._create_fastapi_app(**fastapi_kwargs)
+        self.middleware_stack: List[Type[PyNextMiddleware]] = []
+        
+        # Setup logging
+        self._setup_logging()
+        
+        # Setup default middleware
+        self._setup_default_middleware()
+        
+        # Load routes
+        self._load_routes()
+        
+        # Setup static files
+        self._setup_static_files()
+    
+    def _create_fastapi_app(self, **kwargs) -> FastAPI:
+        """Create FastAPI application with configuration."""
+        # Merge config with kwargs
+        app_kwargs = {
+            "debug": self.config.debug,
+            "title": kwargs.get("title", "PyNext API"),
+            "description": kwargs.get("description", "API built with PyNext framework"),
+            "version": kwargs.get("version", "1.0.0"),
+        }
+        app_kwargs.update(kwargs)
+        
+        return FastAPI(**app_kwargs)
+    
+    def _setup_logging(self):
+        """Setup logging configuration."""
+        logging.basicConfig(
+            level=getattr(logging, self.config.log_level.upper()),
+            format=self.config.log_format
+        )
+        self.logger = logging.getLogger("pynext")
+    
+    def _setup_default_middleware(self):
+        """Setup default middleware based on configuration."""
+        # CORS middleware
+        if self.config.cors_origins:
+            cors_middleware = CORSMiddleware(
+                allow_origins=self.config.cors_origins,
+                allow_credentials=self.config.cors_credentials,
+                allow_methods=self.config.cors_methods,
+                allow_headers=self.config.cors_headers
+            )
+            self.app.add_middleware(cors_middleware.get_middleware().__class__, **{
+                "allow_origins": self.config.cors_origins,
+                "allow_credentials": self.config.cors_credentials,
+                "allow_methods": self.config.cors_methods,
+                "allow_headers": self.config.cors_headers
+            })
+        
+        # Rate limiting middleware
+        if self.config.rate_limit_enabled:
+            self.app.add_middleware(
+                RateLimitMiddleware,
+                calls=self.config.rate_limit_calls,
+                period=self.config.rate_limit_period
+            )
+        
+        # Security headers middleware
+        self.app.add_middleware(SecurityHeadersMiddleware)
+        
+        # Request logging middleware
+        if self.config.debug:
+            self.app.add_middleware(RequestLoggingMiddleware, logger=self.logger)
+        
+        # Compression middleware
+        self.app.add_middleware(CompressionMiddleware)
+    
+    def _setup_static_files(self):
+        """Setup static file serving."""
+        if self.config.static_files_enabled:
+            static_path = Path(self.config.static_files_path)
+            if static_path.exists():
+                self.app.mount(
+                    self.config.static_files_url,
+                    StaticFiles(directory=str(static_path)),
+                    name="static"
+                )
+    
+    def _load_routes(self):
+        """Load routes from project's routes/ folder."""
+        routes_path = Path("routes")
+        if routes_path.exists():
+            self._load_routes_recursive(routes_path)
+    
+    def _load_routes_recursive(self, routes_dir: Path, prefix: str = ""):
+        """Recursively load routes from directory structure."""
         router = APIRouter(prefix=prefix)
+        
         for item in routes_dir.iterdir():
             if item.is_dir():
                 # Recurse into subfolders (e.g., routes/api/users)
                 new_prefix = f"{prefix}/{item.name}"
-                sub_router = load_routes(item, new_prefix)
-                app.include_router(sub_router)
+                self._load_routes_recursive(item, new_prefix)
             elif item.suffix == ".py" and item.name != "__init__.py":
-                # Load route file (e.g., get.py or [id].py)
-                route_name = item.stem
-                module_name = f"routes.{prefix.replace('/', '.')}.{route_name}".strip(".")
-                spec = importlib.util.spec_from_file_location(module_name, item)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                
-                # Extract router or create one
-                route_router = getattr(module, "router", APIRouter())
-                
-                # Map HTTP methods to functions
-                for method in ["get", "post", "put", "delete"]:
-                    if hasattr(module, method):
-                        path = "/" if route_name == "index" else f"/{route_name}"
-                        if route_name.startswith("[") and route_name.endswith("]"):
-                            path = f"/{{{route_name[1:-1]}}}"  # Dynamic route: [id] -> {id}
-                        getattr(route_router, method)(path)(getattr(module, method))
-                
-                app.include_router(route_router)
-        return router
-
-    # Load routes from project's routes/ folder
-    routes_path = Path("routes")
-    if routes_path.exists():
-        load_routes(routes_path)
+                self._load_route_file(item, prefix)
     
-    return app
+    def _load_route_file(self, route_file: Path, prefix: str = ""):
+        """Load a single route file."""
+        try:
+            route_name = route_file.stem
+            module_name = f"routes.{prefix.replace('/', '.')}.{route_name}".strip(".")
+            
+            spec = importlib.util.spec_from_file_location(module_name, route_file)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            # Extract router or create one
+            route_router = getattr(module, "router", APIRouter())
+            
+            # Map HTTP methods to functions
+            for method in ["get", "post", "put", "delete", "patch", "head", "options", "trace"]:
+                if hasattr(module, method):
+                    path = self._get_route_path(route_name)
+                    getattr(route_router, method)(path)(getattr(module, method))
+            
+            # Include the router with proper prefix
+            final_prefix = prefix if prefix else ""
+            route_router.prefix = final_prefix
+            self.app.include_router(route_router)
+            
+            self.logger.debug(f"Loaded route: {route_file} with prefix: {final_prefix}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load route {route_file}: {e}")
+    
+    def _get_route_path(self, route_name: str) -> str:
+        """Convert route name to FastAPI path."""
+        if route_name == "index":
+            return "/"
+        elif route_name.startswith("[") and route_name.endswith("]"):
+            # Dynamic route: [id] -> {id}
+            param_name = route_name[1:-1]
+            return f"/{{{param_name}}}"
+        elif route_name.startswith("[...") and route_name.endswith("]"):
+            # Catch-all route: [...slug] -> {slug:path}
+            param_name = route_name[4:-1]
+            return f"/{{{param_name}:path}}"
+        else:
+            return f"/{route_name}"
+    
+    def add_middleware(self, middleware_class: Type[PyNextMiddleware], **kwargs):
+        """Add custom middleware to the application."""
+        self.app.add_middleware(middleware_class, **kwargs)
+        self.middleware_stack.append(middleware_class)
+        self.logger.debug(f"Added middleware: {middleware_class.__name__}")
+    
+    def add_auth_middleware(self, protected_paths: List[str] = None, excluded_paths: List[str] = None):
+        """Add JWT authentication middleware."""
+        if not self.config.secret_key or self.config.secret_key == "dev-secret-key-change-in-production":
+            self.logger.warning("Using default secret key. Change SECRET_KEY in production!")
+        
+        self.add_middleware(
+            AuthMiddleware,
+            secret_key=self.config.secret_key,
+            protected_paths=protected_paths,
+            excluded_paths=excluded_paths
+        )
+    
+    def get_app(self) -> FastAPI:
+        """Get the underlying FastAPI application."""
+        return self.app
+    
+    def run(self, host: str = None, port: int = None, **uvicorn_kwargs):
+        """Run the application with uvicorn."""
+        import uvicorn
+        
+        run_kwargs = {
+            "host": host or self.config.host,
+            "port": port or self.config.port,
+            "reload": self.config.reload,
+            "log_level": self.config.log_level.lower(),
+            **uvicorn_kwargs
+        }
+        
+        self.logger.info(f"Starting PyNext server on {run_kwargs['host']}:{run_kwargs['port']}")
+        uvicorn.run(self.app, **run_kwargs)
+
+
+def create_app(config: Optional[PyNextConfig] = None, **kwargs) -> FastAPI:
+    """Create a PyNext FastAPI application."""
+    pynext_app = PyNextApp(config=config, **kwargs)
+    return pynext_app.get_app()
+
+
+def create_pynext_app(config: Optional[PyNextConfig] = None, **kwargs) -> PyNextApp:
+    """Create a PyNext application instance."""
+    return PyNextApp(config=config, **kwargs)
