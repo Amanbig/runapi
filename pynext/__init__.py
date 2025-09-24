@@ -12,6 +12,38 @@ from .core import create_app, create_pynext_app, PyNextApp
 # Configuration
 from .config import PyNextConfig, get_config, load_config
 
+# Error handling
+from .errors import (
+    PyNextException,
+    ValidationError,
+    AuthenticationError,
+    AuthorizationError,
+    NotFoundError,
+    ConflictError,
+    RateLimitError,
+    ServerError,
+    DatabaseError,
+    ExternalServiceError,
+    ErrorResponse,
+    ErrorHandler,
+    setup_error_handlers,
+    raise_validation_error,
+    raise_auth_error,
+    raise_permission_error,
+    raise_not_found,
+    raise_conflict,
+    raise_server_error,
+    create_error_response,
+    bad_request,
+    unauthorized,
+    forbidden,
+    not_found,
+    conflict,
+    unprocessable_entity,
+    rate_limited,
+    internal_error,
+)
+
 # Authentication
 from .auth import (
     PasswordManager,
@@ -31,10 +63,7 @@ from .auth import (
     generate_api_key,
     generate_password,
     create_token_response,
-    password_manager,
-    jwt_manager,
     api_key_manager,
-    auth_deps,
 )
 
 # Middleware
@@ -68,6 +97,36 @@ __all__ = [
     "get_config",
     "load_config",
     
+    # Error handling
+    "PyNextException",
+    "ValidationError",
+    "AuthenticationError",
+    "AuthorizationError",
+    "NotFoundError",
+    "ConflictError",
+    "RateLimitError",
+    "ServerError",
+    "DatabaseError",
+    "ExternalServiceError",
+    "ErrorResponse",
+    "ErrorHandler",
+    "setup_error_handlers",
+    "raise_validation_error",
+    "raise_auth_error",
+    "raise_permission_error",
+    "raise_not_found",
+    "raise_conflict",
+    "raise_server_error",
+    "create_error_response",
+    "bad_request",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unprocessable_entity",
+    "rate_limited",
+    "internal_error",
+    
     # Authentication
     "PasswordManager",
     "JWTManager", 
@@ -86,10 +145,7 @@ __all__ = [
     "generate_api_key",
     "generate_password",
     "create_token_response",
-    "password_manager",
-    "jwt_manager", 
     "api_key_manager",
-    "auth_deps",
     
     # Middleware
     "PyNextMiddleware",

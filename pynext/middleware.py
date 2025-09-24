@@ -3,10 +3,9 @@ import json
 import logging
 from typing import Callable, Dict, Any, List, Optional
 from fastapi import Request, Response, HTTPException
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware as StarletteBaseHTTPMiddleware
 from collections import defaultdict
 import asyncio
 

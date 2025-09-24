@@ -67,18 +67,14 @@ class PyNextApp:
         """Setup default middleware based on configuration."""
         # CORS middleware
         if self.config.cors_origins:
-            cors_middleware = CORSMiddleware(
+            from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
+            self.app.add_middleware(
+                FastAPICORSMiddleware,
                 allow_origins=self.config.cors_origins,
                 allow_credentials=self.config.cors_credentials,
                 allow_methods=self.config.cors_methods,
                 allow_headers=self.config.cors_headers
             )
-            self.app.add_middleware(cors_middleware.get_middleware().__class__, **{
-                "allow_origins": self.config.cors_origins,
-                "allow_credentials": self.config.cors_credentials,
-                "allow_methods": self.config.cors_methods,
-                "allow_headers": self.config.cors_headers
-            })
         
         # Rate limiting middleware
         if self.config.rate_limit_enabled:

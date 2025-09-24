@@ -8,7 +8,11 @@ import json
 import base64
 import hmac
 
-from passlib.context import CryptContext
+try:
+    from passlib.context import CryptContext
+except ImportError:
+    CryptContext = None
+
 from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -19,6 +23,8 @@ class PasswordManager:
     """Password hashing and verification utilities."""
     
     def __init__(self, schemes: list = None):
+        if CryptContext is None:
+            raise ImportError("passlib is required for password hashing. Install with: pip install passlib[bcrypt]")
         self.schemes = schemes or ["bcrypt"]
         self.pwd_context = CryptContext(schemes=self.schemes, deprecated="auto")
     
@@ -235,56 +241,83 @@ class AuthDependencies:
         return permission_checker
 
 
-# Global instances
-password_manager = PasswordManager()
-jwt_manager = JWTManager()
+# Global instances (lazy initialization to handle import errors gracefully)
+password_manager = None
+jwt_manager = None
 api_key_manager = APIKeyManager()
-auth_deps = AuthDependencies()
+auth_deps = None
+
+def _get_password_manager():
+    global password_manager
+    if password_manager is None:
+        try:
+            password_manager = PasswordManager()
+        except ImportError:
+            pass
+    return password_manager
+
+def _get_jwt_manager():
+    global jwt_manager
+    if jwt_manager is None:
+        jwt_manager = JWTManager()
+    return jwt_manager
+
+def _get_auth_deps():
+    global auth_deps
+    if auth_deps is None:
+        auth_deps = AuthDependencies()
+    return auth_deps
 
 
 def hash_password(password: str) -> str:
     """Hash a password using the global password manager."""
-    return password_manager.hash_password(password)
+    manager = _get_password_manager()
+    if manager is None:
+        raise ImportError("passlib is required for password hashing. Install with: pip install passlib[bcrypt]")
+    return manager.hash_password(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password using the global password manager."""
-    return password_manager.verify_password(plain_password, hashed_password)
+    manager = _get_password_manager()
+    if manager is None:
+        raise ImportError("passlib is required for password hashing. Install with: pip install passlib[bcrypt]")
+    return manager.verify_password(plain_password, hashed_password)
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Create an access token using the global JWT manager."""
-    return jwt_manager.create_access_token(data, expires_delta)
+    return _get_jwt_manager().create_access_token(data, expires_delta)
 
 
 def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Create a refresh token using the global JWT manager."""
-    return jwt_manager.create_refresh_token(data, expires_delta)
+    return _get_jwt_manager().create_refresh_token(data, expires_delta)
 
 
 def verify_token(token: str) -> Optional[Dict[str, Any]]:
     """Verify a token using the global JWT manager."""
-    return jwt_manager.verify_token(token)
+    return _get_jwt_manager().verify_token(token)
 
 
 def get_current_user():
     """Get the current user dependency."""
-    return auth_deps.get_current_user
+    return _get_auth_deps().get_current_user
 
 
 def get_current_active_user():
     """Get the current active user dependency."""
-    return auth_deps.get_current_active_user
+    return _get_auth_deps().get_current_active_user
 
 
 def require_roles(roles: list):
     """Create a dependency that requires specific roles."""
-    return auth_deps.require_roles(roles)
+    return _get_auth_deps().require_roles(roles)
 
 
 def require_permissions(permissions: list):
     """Create a dependency that requires specific permissions."""
-    return auth_deps.require_permissions(permissions)
+    return _get_auth_deps().require_permissions(permissions)
 
 
 # Utility functions
@@ -295,7 +328,10 @@ def generate_api_key(length: int = 32) -> str:
 
 def generate_password(length: int = 12) -> str:
     """Generate a random password."""
-    return password_manager.generate_random_password(length)
+    manager = _get_password_manager()
+    if manager is None:
+        raise ImportError("passlib is required for password generation. Install with: pip install passlib[bcrypt]")
+    return manager.generate_random_password(length)
 
 
 class TokenResponse:

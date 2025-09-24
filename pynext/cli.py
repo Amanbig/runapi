@@ -122,7 +122,7 @@ if __name__ == "__main__":
     pynext_app.run()
 '''
     
-    (project_path / "main.py").write_text(main_content)
+    (project_path / "main.py").write_text(main_content, encoding='utf-8')
     
     # Create example route
     routes_api_path = project_path / "routes" / "api"
@@ -143,7 +143,7 @@ async def get():
     })
 '''
     
-    (routes_api_path / "hello.py").write_text(example_route)
+    (routes_api_path / "hello.py").write_text(example_route, encoding='utf-8')
     
     # Create index route
     index_route = '''"""
@@ -162,7 +162,7 @@ async def get():
     })
 '''
     
-    (project_path / "routes" / "index.py").write_text(index_route)
+    (project_path / "routes" / "index.py").write_text(index_route, encoding='utf-8')
     
     # Create .env file
     env_content = '''# PyNext Configuration
@@ -189,7 +189,7 @@ STATIC_FILES_PATH=static
 STATIC_FILES_URL=/static
 '''
     
-    (project_path / ".env").write_text(env_content)
+    (project_path / ".env").write_text(env_content, encoding='utf-8')
     
     # Create .gitignore
     gitignore_content = '''# Python
@@ -220,7 +220,7 @@ uploads/
 Thumbs.db
 '''
     
-    (project_path / ".gitignore").write_text(gitignore_content)
+    (project_path / ".gitignore").write_text(gitignore_content, encoding='utf-8')
     
     # Create README
     readme_content = f'''# {name}
@@ -266,9 +266,9 @@ A PyNext API project.
 
 Create Python files in the `routes/` directory:
 
-- `routes/users.py` → `GET /users`
-- `routes/api/users/[id].py` → `GET /api/users/123`
-- `routes/api/auth/login.py` → `GET /api/auth/login`
+- `routes/users.py` -> `GET /users`
+- `routes/api/users/[id].py` -> `GET /api/users/123`
+- `routes/api/auth/login.py` -> `GET /api/auth/login`
 
 Export HTTP method functions:
 
@@ -281,7 +281,7 @@ async def post():
 ```
 '''
     
-    (project_path / "README.md").write_text(readme_content)
+    (project_path / "README.md").write_text(readme_content, encoding='utf-8')
     
     console.print("✅ [green]Project created successfully!")
     console.print(f"\n📁 Project structure:")
@@ -379,7 +379,7 @@ async def post(request: Request):
 #     pass
 '''
     
-    file_path.write_text(route_template)
+    file_path.write_text(route_template, encoding='utf-8')
     console.print(f"✅ [green]Route created: {file_path}")
     
     # Show URL mapping
@@ -421,7 +421,7 @@ if __name__ == "__main__":
     pynext_app.run()
 '''
     
-    main_path.write_text(main_content)
+    main_path.write_text(main_content, encoding='utf-8')
     console.print("✅ [green]main.py created successfully!")
 
 
@@ -470,7 +470,7 @@ class {name.title()}Middleware(PyNextMiddleware):
 # pynext_app.add_middleware({name.title()}Middleware)
 '''
     
-    file_path.write_text(middleware_template)
+    file_path.write_text(middleware_template, encoding='utf-8')
     console.print(f"✅ [green]Middleware created: {file_path}")
 
 
@@ -568,5 +568,9 @@ def info():
     console.print(config_table)
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for CLI."""
     app()
+
+if __name__ == "__main__":
+    main()

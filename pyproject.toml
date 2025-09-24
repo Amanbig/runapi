@@ -34,4 +34,4 @@ Homepage = "https://github.com/Amanbig/pynext"
 Repository = "https://github.com/Amanbig/pynext"
 
 [project.scripts]
-pynext = "pynext.cli:app"
+pynext = "pynext.cli:main"
