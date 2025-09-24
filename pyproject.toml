@@ -1,4 +1,3 @@
-# pynextapi/pyproject.toml
 [project]
 name = "pynext"
 version = "0.1.0"
@@ -18,11 +17,25 @@ dependencies = [
     "aiofiles>=23.0.0",
     "psutil>=5.9.0",
 ]
-keywords = ["fastapi", "framework", "file-based-routing", "nextjs"]
+keywords = ["fastapi", "framework", "file-based-routing", "nextjs", "api", "backend", "web", "async"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
 ]
 
 [build-system]
@@ -32,6 +45,24 @@ build-backend = "hatchling.build"
 [project.urls]
 Homepage = "https://github.com/Amanbig/pynext"
 Repository = "https://github.com/Amanbig/pynext"
+Documentation = "https://github.com/Amanbig/pynext#readme"
+Issues = "https://github.com/Amanbig/pynext/issues"
+Changelog = "https://github.com/Amanbig/pynext/releases"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "httpx>=0.24.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "httpx>=0.24.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
 
 [project.scripts]
 pynext = "pynext.cli:main"

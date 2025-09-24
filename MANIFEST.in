@@ -1,0 +1,19 @@
+include README.md
+include LICENSE
+include pyproject.toml
+recursive-include pynext *.py
+recursive-include example *.py *.env *.md
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * *.orig
+recursive-exclude * *.rej
+recursive-exclude * .git*
+recursive-exclude * .DS_Store
+exclude .gitignore
+exclude test_*.py
+exclude simple_test.py
+exclude final_test.py
+global-exclude *.pyc
+global-exclude .pytest_cache
+global-exclude venv
+global-exclude __pycache__
