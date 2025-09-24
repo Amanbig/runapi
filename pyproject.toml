@@ -16,6 +16,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "python-multipart>=0.0.6",
     "aiofiles>=23.0.0",
+    "psutil>=5.9.0",
 ]
 keywords = ["fastapi", "framework", "file-based-routing", "nextjs"]
 classifiers = [
@@ -31,3 +32,6 @@ build-backend = "hatchling.build"
 [project.urls]
 Homepage = "https://github.com/Amanbig/pynext"
 Repository = "https://github.com/Amanbig/pynext"
+
+[project.scripts]
+pynext = "pynext.cli:app"
