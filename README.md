@@ -675,7 +675,7 @@ Please include:
 - **Enhancement**: Better Python path management for uvicorn integration
 - **Enhancement**: Added pre-validation of main.py before server startup
 
-### v0.1.0
+### v0.1.1
 - Initial release
 - File-based routing system
 - JWT authentication
