@@ -9,7 +9,65 @@ on:
     types: [published]
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      is_new_version: ${{ steps.check.outputs.is_new_version }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check if version is new
+        id: check
+        shell: python
+        run: |
+          import tomllib
+          import sys
+          import json
+          import os
+          from urllib.request import urlopen
+          from urllib.error import HTTPError
+
+          try:
+              with open("pyproject.toml", "rb") as f:
+                  project = tomllib.load(f)
+                  local_version = project["project"]["version"]
+                  package_name = project["project"]["name"]
+              
+              print(f"Checking version {local_version} for package {package_name}...")
+
+              try:
+                  with urlopen(f"https://pypi.org/pypi/{package_name}/json") as response:
+                      data = json.load(response)
+                      pypi_versions = data["releases"].keys()
+                      if local_version in pypi_versions:
+                          print(f"Version {local_version} already exists on PyPI. Skipping build & publish.")
+                          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                              print("is_new_version=false", file=fh)
+                      else:
+                          print(f"Version {local_version} is new! Proceeding.")
+                          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                              print("is_new_version=true", file=fh)
+              except HTTPError as e:
+                  if e.code == 404:
+                      print("Package not found on PyPI (first deployment). Proceeding.")
+                      with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                          print("is_new_version=true", file=fh)
+                  else:
+                      print(f"Error checking PyPI: {e}")
+                      sys.exit(1)
+                      
+          except Exception as e:
+              print(f"Error: {e}")
+              sys.exit(1)
+
   build:
+    needs: check-version
+    if: needs.check-version.outputs.is_new_version == 'true'
     name: Build distribution 📦
     runs-on: ubuntu-latest
 
@@ -37,12 +95,10 @@ jobs:
 
   publish-to-pypi:
     name: Publish Python 🐍 distribution to PyPI
-    if: github.event_name == 'release' || github.event_name == 'push'
-    needs:
-    - build
+    needs: build
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing if used
+      id-token: write
 
     steps:
     - name: Download all the dists
