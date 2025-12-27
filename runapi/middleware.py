@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
 from fastapi.responses import JSONResponse
 from collections import defaultdict
 import asyncio
+from fastapi.middleware.gzip import GZipMiddleware
 
 
 class RunApiMiddleware(BaseHTTPMiddleware):
@@ -266,55 +267,14 @@ class SecurityHeadersMiddleware(RunApiMiddleware):
         return response
 
 
-class CompressionMiddleware(RunApiMiddleware):
-    """Simple compression middleware for JSON responses."""
+class CompressionMiddleware(GZipMiddleware):
+    """
+    Compression middleware using GZipMiddleware.
     
-    def __init__(self, app, minimum_size: int = 1000):
-        super().__init__(app)
-        self.minimum_size = minimum_size
-    
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        response = await call_next(request)
-        
-        # Check if client accepts compression
-        accept_encoding = request.headers.get("Accept-Encoding", "")
-        if "gzip" not in accept_encoding.lower():
-            return response
-        
-        # Check content type and size
-        content_type = response.headers.get("Content-Type", "")
-        if not (content_type.startswith("application/json") or content_type.startswith("text/")):
-            return response
-        
-        # Get response body
-        body = b""
-        async for chunk in response.body_iterator:
-            body += chunk
-        
-        if len(body) < self.minimum_size:
-            return Response(
-                content=body,
-                status_code=response.status_code,
-                headers=dict(response.headers),
-                media_type=response.media_type
-            )
-        
-        # Compress with gzip
-        import gzip
-        compressed_body = gzip.compress(body)
-        
-        # Create new response with compressed content
-        new_response = Response(
-            content=compressed_body,
-            status_code=response.status_code,
-            headers=dict(response.headers),
-            media_type=response.media_type
-        )
-        
-        new_response.headers["Content-Encoding"] = "gzip"
-        new_response.headers["Content-Length"] = str(len(compressed_body))
-        
-        return new_response
+    This replaces the previous custom implementation to support streaming responses
+    and better memory efficiency.
+    """
+    pass
 
 
 class CORSMiddleware:
