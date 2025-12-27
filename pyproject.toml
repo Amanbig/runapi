@@ -1,6 +1,6 @@
 [project]
 name = "runapi"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Next.js-inspired file-based routing framework built on FastAPI"
 readme = "README.md"
 authors = [{ name = "Amanpreet Singh", email = "amanpreetsinghjhiwant7@gmail.com" }]

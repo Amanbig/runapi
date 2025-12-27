@@ -57,10 +57,8 @@ def dev(
     console.print(table)
     
     # Check for routes directory
-    routes_path = Path("routes")
-    if routes_path.exists():
-        route_count = len([f for f in routes_path.rglob("*.py") if f.name != "__init__.py"])
-        console.print(f"📁 Found {route_count} route files in ./routes/")
+    if Path("routes").exists():
+        console.print("📁 Routes directory detected")
     else:
         console.print("[yellow]⚠️  No routes directory found")
     
@@ -98,6 +96,68 @@ def dev(
             reload=config.reload,
             log_level=config.log_level.lower(),
             reload_dirs=[current_dir] if config.reload else None,
+        )
+    except KeyboardInterrupt:
+        console.print("\n[yellow]👋 Server stopped")
+    except Exception as e:
+        console.print(f"[red]❌ Server error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def start(
+    host: str = typer.Option(None, "--host", "-h", help="Host to bind"),
+    port: int = typer.Option(None, "--port", "-p", help="Port to bind"),
+    workers: int = typer.Option(None, "--workers", "-w", help="Number of worker processes"),
+    config_file: str = typer.Option(".env", "--config", "-c", help="Configuration file"),
+    log_level: str = typer.Option(None, "--log-level", "-l", help="Log level"),
+):
+    """Run the RunApi server in production mode."""
+    console.print(Panel.fit("🚀 [bold green]RunApi Production Server[/bold green]", style="green"))
+    
+    # Load configuration
+    config = load_config(config_file)
+    
+    # Override config with CLI arguments
+    if host:
+        config.host = host
+    if port:
+        config.port = port
+    if log_level:
+        config.log_level = log_level
+    
+    # Determine workers
+    # If not specified in CLI, check env/config, else default to 1 (or cpu_count in real prod)
+    # RunApiConfig doesn't have 'workers' yet, adding it logic here or just defaulting
+    final_workers = workers or int(os.getenv("WORKERS", "1"))
+
+    # Check if main.py exists
+    if not Path("main.py").exists():
+        console.print("[red]❌ Error: main.py not found")
+        raise typer.Exit(code=1)
+    
+    # Display server info
+    table = Table(show_header=False, box=None)
+    table.add_row("🌐 Server:", f"http://{config.host}:{config.port}")
+    table.add_row("⚙️  Mode:", "Production (No Reload)")
+    table.add_row("👷 Workers:", str(final_workers))
+    table.add_row("📝 Log Level:", config.log_level.upper())
+    console.print(table)
+    console.print()
+    
+    try:
+        # Puts current dir in path
+        import sys
+        if os.getcwd() not in sys.path:
+            sys.path.insert(0, os.getcwd())
+            
+        uvicorn.run(
+            "main:app",
+            host=config.host,
+            port=config.port,
+            workers=final_workers,
+            reload=False,
+            log_level=config.log_level.lower(),
         )
     except KeyboardInterrupt:
         console.print("\n[yellow]👋 Server stopped")
@@ -534,15 +594,24 @@ def routes():
             url_path = re.sub(r'\[([^\]]+)\]', r'{\1}', url_path)
         
         # Read file to detect HTTP methods
+        # Read file to detect HTTP methods
         try:
             content = route_file.read_text()
-            methods = []
-            for method in ["get", "post", "put", "delete", "patch", "head", "options"]:
-                if f"async def {method}(" in content or f"def {method}(" in content:
-                    methods.append(method.upper())
-            
-            methods_str = ", ".join(methods) if methods else "No methods found"
-            table.add_row(methods_str, url_path, str(relative_path))
+            import ast
+            try:
+                tree = ast.parse(content)
+                methods = []
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        if node.name in ["get", "post", "put", "delete", "patch", "head", "options"]:
+                            methods.append(node.name.upper())
+                
+                # Deduplicate and sort
+                methods = sorted(list(set(methods)))
+                methods_str = ", ".join(methods) if methods else "No methods found"
+                table.add_row(methods_str, url_path, str(relative_path))
+            except SyntaxError:
+                table.add_row("Error", url_path, "Syntax Error in file")
             
         except Exception as e:
             table.add_row("Error", url_path, f"Error reading file: {e}")

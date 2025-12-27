@@ -41,8 +41,10 @@ class PasswordManager:
         return secrets.token_urlsafe(length)
 
 
+from jose import jwt, JWTError
+
 class JWTManager:
-    """JWT token management utilities."""
+    """JWT token management utilities using python-jose."""
     
     def __init__(self, secret_key: str = None, algorithm: str = "HS256"):
         self.config = get_config()
@@ -54,28 +56,6 @@ class JWTManager:
         if self.secret_key == "dev-secret-key-change-in-production":
             raise ValueError("Change the SECRET_KEY in production!")
     
-    def _base64url_encode(self, data: bytes) -> str:
-        """Base64 URL-safe encode."""
-        return base64.urlsafe_b64encode(data).decode().rstrip('=')
-    
-    def _base64url_decode(self, data: str) -> bytes:
-        """Base64 URL-safe decode."""
-        # Add padding if needed
-        padding = 4 - len(data) % 4
-        if padding != 4:
-            data += '=' * padding
-        return base64.urlsafe_b64decode(data)
-    
-    def _create_signature(self, header: str, payload: str) -> str:
-        """Create JWT signature."""
-        message = f"{header}.{payload}"
-        signature = hmac.new(
-            self.secret_key.encode(),
-            message.encode(),
-            hashlib.sha256
-        ).digest()
-        return self._base64url_encode(signature)
-    
     def create_token(
         self,
         data: Dict[str, Any],
@@ -83,13 +63,6 @@ class JWTManager:
         token_type: str = "access"
     ) -> str:
         """Create a JWT token."""
-        # Create header
-        header = {
-            "alg": self.algorithm,
-            "typ": "JWT"
-        }
-        
-        # Create payload
         to_encode = data.copy()
         
         # Set expiration
@@ -100,45 +73,27 @@ class JWTManager:
             expire = datetime.utcnow() + timedelta(seconds=expire_minutes)
         
         to_encode.update({
-            "exp": int(expire.timestamp()),
-            "iat": int(datetime.utcnow().timestamp()),
+            "exp": expire,
+            "iat": datetime.utcnow(),
             "type": token_type
         })
         
-        # Encode header and payload
-        header_encoded = self._base64url_encode(json.dumps(header).encode())
-        payload_encoded = self._base64url_encode(json.dumps(to_encode).encode())
-        
-        # Create signature
-        signature = self._create_signature(header_encoded, payload_encoded)
-        
-        # Return complete token
-        return f"{header_encoded}.{payload_encoded}.{signature}"
+        # Encode token
+        encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+        return encoded_jwt
     
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify and decode a JWT token."""
         try:
-            parts = token.split('.')
-            if len(parts) != 3:
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            
+            # Check expiration (handled by jose, but double checking payload)
+            if 'exp' in payload and payload['exp'] < time.time():
                 return None
             
-            header_encoded, payload_encoded, signature = parts
+            return payload
             
-            # Verify signature
-            expected_signature = self._create_signature(header_encoded, payload_encoded)
-            if not hmac.compare_digest(signature, expected_signature):
-                return None
-            
-            # Decode payload
-            payload_data = json.loads(self._base64url_decode(payload_encoded))
-            
-            # Check expiration
-            if 'exp' in payload_data and payload_data['exp'] < time.time():
-                return None
-            
-            return payload_data
-            
-        except Exception:
+        except JWTError:
             return None
     
     def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:

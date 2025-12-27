@@ -121,6 +121,10 @@ class RunApiApp:
         
         for item in routes_dir.iterdir():
             if item.is_dir():
+                # Skip hidden directories and __pycache__
+                if item.name.startswith(".") or item.name.startswith("__"):
+                    continue
+
                 # Recurse into subfolders (e.g., routes/api/users)
                 new_prefix = f"{prefix}/{item.name}"
                 self._load_routes_recursive(item, new_prefix)
