@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_new_version: ${{ steps.check.outputs.is_new_version }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       
@@ -39,6 +40,10 @@ jobs:
                   package_name = project["project"]["name"]
               
               print(f"Checking version {local_version} for package {package_name}...")
+              
+              # Output version for later jobs
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                  print(f"version={local_version}", file=fh)
 
               try:
                   with urlopen(f"https://pypi.org/pypi/{package_name}/json") as response:
@@ -113,3 +118,21 @@ jobs:
         password: ${{ secrets.PYPI_API_TOKEN }}
         skip-existing: true
         verbose: true
+
+  create-release:
+    name: Create GitHub Release 🏷️
+    needs: [publish-to-pypi, check-version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
