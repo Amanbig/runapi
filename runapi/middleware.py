@@ -48,7 +48,7 @@ class RequestLoggingMiddleware(RunApiMiddleware):
 
 
 class RateLimitMiddleware(RunApiMiddleware):
-    """Rate limiting middleware using in-memory storage."""
+    """Rate limiting middleware using Fixed Window Counter (O(1))."""
     
     def __init__(
         self, 
@@ -61,7 +61,8 @@ class RateLimitMiddleware(RunApiMiddleware):
         self.calls = calls
         self.period = period
         self.key_func = key_func or self._default_key_func
-        self.requests: Dict[str, List[float]] = defaultdict(list)
+        # Store: {key: [count, start_time]}
+        self.requests: Dict[str, List[float]] = {}
         self.lock = asyncio.Lock()
     
     def _default_key_func(self, request: Request) -> str:
@@ -76,36 +77,41 @@ class RateLimitMiddleware(RunApiMiddleware):
         current_time = time.time()
         
         async with self.lock:
-            # Clean old requests
-            self.requests[key] = [
-                req_time for req_time in self.requests[key]
-                if current_time - req_time < self.period
-            ]
-            
-            # Check rate limit
-            if len(self.requests[key]) >= self.calls:
-                return JSONResponse(
-                    status_code=429,
-                    content={
-                        "error": "Rate limit exceeded",
-                        "message": f"Maximum {self.calls} requests per {self.period} seconds"
-                    },
-                    headers={"Retry-After": str(self.period)}
-                )
-            
-            # Record this request
-            self.requests[key].append(current_time)
+            # Get current window state
+            if key not in self.requests:
+                self.requests[key] = [1, current_time]
+                remaining = self.calls - 1
+                reset_time = current_time + self.period
+            else:
+                count, start_time = self.requests[key]
+                
+                if current_time > start_time + self.period:
+                    # New window
+                    self.requests[key] = [1, current_time]
+                    remaining = self.calls - 1
+                    reset_time = current_time + self.period
+                else:
+                    # Current window
+                    if count >= self.calls:
+                        return JSONResponse(
+                            status_code=429,
+                            content={
+                                "error": "Rate limit exceeded",
+                                "message": f"Maximum {self.calls} requests per {self.period} seconds"
+                            },
+                            headers={"Retry-After": str(int(start_time + self.period - current_time))}
+                        )
+                    
+                    self.requests[key][0] += 1
+                    remaining = self.calls - self.requests[key][0]
+                    reset_time = start_time + self.period
         
         response = await call_next(request)
         
         # Add rate limit headers
         response.headers["X-RateLimit-Limit"] = str(self.calls)
-        response.headers["X-RateLimit-Remaining"] = str(
-            max(0, self.calls - len(self.requests[key]))
-        )
-        response.headers["X-RateLimit-Reset"] = str(
-            int(current_time + self.period)
-        )
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        response.headers["X-RateLimit-Reset"] = str(int(reset_time))
         
         return response
 
