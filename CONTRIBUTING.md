@@ -1,5 +1,3 @@
----
-
 # Contributing to runapi
 
 Thank you for your interest in contributing to **runapi** 🚀
@@ -216,7 +214,3 @@ Maintainers are happy to help 🙂
 
 Your time and effort make **runapi** better for everyone.
 Thanks for contributing!
-
----
-
-Just say what you want next 🚀
