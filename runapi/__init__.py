@@ -100,6 +100,23 @@ from .schemas import (
     create_update_model,
 )
 
+# Repository
+from .repository import (
+    BaseRepository,
+    RepositoryProtocol,
+    InMemoryRepository,
+    TypedInMemoryRepository,
+    RepositoryFactory,
+    create_repository,
+    SQLALCHEMY_AVAILABLE,
+)
+
+# Conditional SQLAlchemy import
+if SQLALCHEMY_AVAILABLE:
+    from .repository import SQLAlchemyRepository
+else:
+    SQLAlchemyRepository = None  # type: ignore
+
 # Convenience imports
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
@@ -195,6 +212,16 @@ __all__ = [
     "create_response_model",
     "create_create_model",
     "create_update_model",
+
+    # Repository
+    "BaseRepository",
+    "RepositoryProtocol",
+    "InMemoryRepository",
+    "TypedInMemoryRepository",
+    "SQLAlchemyRepository",
+    "RepositoryFactory",
+    "create_repository",
+    "SQLALCHEMY_AVAILABLE",
 
     # FastAPI re-exports
     "FastAPI",

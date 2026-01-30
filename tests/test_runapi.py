@@ -582,6 +582,226 @@ async def post(request: Request):
     print("✅ Schema integration with routes test passed!")
 
 
+def test_repository_in_memory():
+    """Test InMemoryRepository basic operations"""
+    print("🧪 Testing InMemoryRepository...")
+
+    import asyncio
+    from runapi import InMemoryRepository
+
+    async def run_tests():
+        repo = InMemoryRepository()
+
+        # Test create
+        user1 = await repo.create({"name": "John", "email": "john@example.com"})
+        assert user1["id"] == 1
+        assert user1["name"] == "John"
+        assert "created_at" in user1
+
+        user2 = await repo.create({"name": "Jane", "email": "jane@example.com"})
+        assert user2["id"] == 2
+
+        # Test get
+        fetched = await repo.get(1)
+        assert fetched["name"] == "John"
+
+        # Test get_all
+        all_users = await repo.get_all()
+        assert len(all_users) == 2
+
+        # Test get_all with filters
+        johns = await repo.get_all(name="John")
+        assert len(johns) == 1
+        assert johns[0]["name"] == "John"
+
+        # Test update
+        updated = await repo.update(1, {"name": "Johnny"})
+        assert updated["name"] == "Johnny"
+        assert updated["email"] == "john@example.com"
+
+        # Test count
+        count = await repo.count()
+        assert count == 2
+
+        # Test exists
+        assert await repo.exists(1) == True
+        assert await repo.exists(999) == False
+
+        # Test delete
+        deleted = await repo.delete(1)
+        assert deleted == True
+
+        remaining = await repo.get_all()
+        assert len(remaining) == 1
+
+        # Test get_by
+        found = await repo.get_by(email="jane@example.com")
+        assert found["name"] == "Jane"
+
+        # Clear for next tests
+        repo.clear()
+        assert await repo.count() == 0
+
+    asyncio.run(run_tests())
+    print("✅ InMemoryRepository test passed!")
+
+
+def test_typed_repository():
+    """Test TypedInMemoryRepository with Pydantic models"""
+    print("🧪 Testing TypedInMemoryRepository...")
+
+    import asyncio
+    from pydantic import BaseModel
+    from typing import Optional
+    from datetime import datetime
+    from runapi import TypedInMemoryRepository
+
+    class User(BaseModel):
+        id: Optional[int] = None
+        name: str
+        email: str
+        created_at: Optional[datetime] = None
+        updated_at: Optional[datetime] = None
+
+    async def run_tests():
+        repo = TypedInMemoryRepository(User)
+
+        # Test create - returns User model instance
+        user = await repo.create({"name": "Alice", "email": "alice@example.com"})
+        assert isinstance(user, User)
+        assert user.id == 1
+        assert user.name == "Alice"
+
+        # Test get - returns User model instance
+        fetched = await repo.get(1)
+        assert isinstance(fetched, User)
+        assert fetched.email == "alice@example.com"
+
+        # Test update - returns User model instance
+        updated = await repo.update(1, {"name": "Alicia"})
+        assert isinstance(updated, User)
+        assert updated.name == "Alicia"
+
+        # Test get_all - returns list of User instances
+        all_users = await repo.get_all()
+        assert all(isinstance(u, User) for u in all_users)
+
+        repo.clear()
+
+    asyncio.run(run_tests())
+    print("✅ TypedInMemoryRepository test passed!")
+
+
+def test_repository_factory():
+    """Test RepositoryFactory registration and creation"""
+    print("🧪 Testing RepositoryFactory...")
+
+    from runapi import RepositoryFactory, InMemoryRepository
+
+    # Clear any existing registrations
+    RepositoryFactory.clear()
+
+    # Test register
+    RepositoryFactory.register("users", InMemoryRepository)
+
+    # Test get
+    repo_class = RepositoryFactory.get("users")
+    assert repo_class == InMemoryRepository
+
+    # Test list
+    repos = RepositoryFactory.list_repositories()
+    assert "users" in repos
+
+    # Test create
+    repo = RepositoryFactory.create("users")
+    assert isinstance(repo, InMemoryRepository)
+
+    # Clean up
+    RepositoryFactory.clear()
+
+    print("✅ RepositoryFactory test passed!")
+
+
+def test_repository_with_routes():
+    """Test using repositories in route handlers"""
+    print("🧪 Testing repository integration with routes...")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Create routes directory
+        routes_path = temp_path / "routes"
+        routes_path.mkdir()
+        (routes_path / "__init__.py").touch()
+
+        api_path = routes_path / "api"
+        api_path.mkdir()
+        (api_path / "__init__.py").touch()
+
+        # Create route that uses repository
+        items_route = '''
+from runapi import JSONResponse, Request, InMemoryRepository
+from datetime import datetime
+
+# Create repository instance
+items_repo = InMemoryRepository()
+
+def serialize_item(item):
+    """Convert datetime objects to ISO format strings."""
+    result = {}
+    for k, v in item.items():
+        if isinstance(v, datetime):
+            result[k] = v.isoformat()
+        else:
+            result[k] = v
+    return result
+
+async def get():
+    """Get all items."""
+    items = await items_repo.get_all()
+    return JSONResponse([serialize_item(i) for i in items])
+
+async def post(request: Request):
+    """Create a new item."""
+    body = await request.json()
+    item = await items_repo.create(body)
+    return JSONResponse(serialize_item(item), status_code=201)
+'''
+        (api_path / "items.py").write_text(items_route, encoding='utf-8')
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+
+            from runapi import create_runapi_app
+            app = create_runapi_app()
+            fastapi_app = app.get_app()
+
+            with TestClient(fastapi_app) as client:
+                # Initially empty
+                response = client.get("/api/items")
+                assert response.status_code == 200
+                assert response.json() == []
+
+                # Create item
+                response = client.post("/api/items", json={"name": "Test Item", "price": 9.99})
+                assert response.status_code == 201
+                data = response.json()
+                assert data["id"] == 1
+                assert data["name"] == "Test Item"
+
+                # Now should have one item
+                response = client.get("/api/items")
+                assert response.status_code == 200
+                items = response.json()
+                assert len(items) == 1
+
+        finally:
+            os.chdir(old_cwd)
+
+    print("✅ Repository integration with routes test passed!")
+
+
 def run_all_tests():
     """Run all tests"""
     print("🚀 Starting RunApi Framework Tests\n")
@@ -599,6 +819,10 @@ def run_all_tests():
         test_schema_system,
         test_schema_auto_discovery,
         test_schema_integration_with_routes,
+        test_repository_in_memory,
+        test_typed_repository,
+        test_repository_factory,
+        test_repository_with_routes,
     ]
     
     passed = 0
