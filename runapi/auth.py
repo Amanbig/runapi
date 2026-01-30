@@ -159,15 +159,24 @@ class AuthDependencies:
 
         return payload
 
-    async def get_current_active_user(
-        self, current_user: Dict[str, Any] = Depends(lambda: AuthDependencies().get_current_user)
-    ) -> Dict[str, Any]:
-        """Dependency to get current active user."""
-        if current_user.get("disabled"):
-            raise HTTPException(status_code=400, detail="Inactive user")
-        return current_user
+    def get_current_active_user_dependency(self):
+        """Create a dependency to get current active user.
 
-    async def require_roles(self, required_roles: list):
+        Returns a dependency function that can be used with Depends().
+        """
+        get_user = self.get_current_user
+
+        async def active_user_checker(
+            credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+        ) -> Dict[str, Any]:
+            current_user = await get_user(credentials)
+            if current_user.get("disabled"):
+                raise HTTPException(status_code=400, detail="Inactive user")
+            return current_user
+
+        return active_user_checker
+
+    def require_roles(self, required_roles: list):
         """Create a dependency that requires specific roles."""
 
         async def role_checker(current_user: Dict[str, Any] = Depends(self.get_current_user)):
@@ -178,7 +187,7 @@ class AuthDependencies:
 
         return role_checker
 
-    async def require_permissions(self, required_permissions: list):
+    def require_permissions(self, required_permissions: list):
         """Create a dependency that requires specific permissions."""
 
         async def permission_checker(current_user: Dict[str, Any] = Depends(self.get_current_user)):
@@ -263,7 +272,7 @@ def get_current_user():
 
 def get_current_active_user():
     """Get the current active user dependency."""
-    return _get_auth_deps().get_current_active_user
+    return _get_auth_deps().get_current_active_user_dependency()
 
 
 def require_roles(roles: list):

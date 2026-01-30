@@ -146,9 +146,16 @@ class RunApiApp:
         """Load a single route file."""
         try:
             route_name = route_file.stem
-            module_name = f"routes.{prefix.replace('/', '.')}.{route_name}".strip(".")
+            prefix_part = prefix.replace("/", ".").strip(".")
+            module_name = (
+                f"routes.{prefix_part}.{route_name}" if prefix_part else f"routes.{route_name}"
+            )
 
             spec = importlib.util.spec_from_file_location(module_name, route_file)
+            if spec is None or spec.loader is None:
+                self.logger.warning(f"Could not load spec for route {route_file}")
+                return
+
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
