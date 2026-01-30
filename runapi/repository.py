@@ -9,13 +9,20 @@ Provides:
 - Generic typing for type-safe repositories
 """
 
-from abc import ABC, abstractmethod
-from typing import (
-    TypeVar, Generic, List, Optional, Dict, Any, Type,
-    Callable, Union, Protocol, runtime_checkable
-)
-from datetime import datetime
 import logging
+from abc import ABC, abstractmethod
+from datetime import datetime, timezone
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    Type,
+    TypeVar,
+    runtime_checkable,
+)
 
 logger = logging.getLogger("runapi.repository")
 
@@ -29,6 +36,7 @@ UpdateSchema = TypeVar("UpdateSchema")
 # =============================================================================
 # Repository Protocol (Interface)
 # =============================================================================
+
 
 @runtime_checkable
 class RepositoryProtocol(Protocol[T, ID]):
@@ -45,6 +53,7 @@ class RepositoryProtocol(Protocol[T, ID]):
 # =============================================================================
 # Base Repository (Abstract)
 # =============================================================================
+
 
 class BaseRepository(ABC, Generic[T, ID]):
     """
@@ -66,12 +75,7 @@ class BaseRepository(ABC, Generic[T, ID]):
         pass
 
     @abstractmethod
-    async def get_all(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters
-    ) -> List[T]:
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters) -> List[T]:
         """Get all entities with pagination and optional filters."""
         pass
 
@@ -104,12 +108,7 @@ class BaseRepository(ABC, Generic[T, ID]):
         items = await self.get_all(skip=0, limit=1, **filters)
         return items[0] if items else None
 
-    async def get_many_by(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters
-    ) -> List[T]:
+    async def get_many_by(self, skip: int = 0, limit: int = 100, **filters) -> List[T]:
         """Get multiple entities matching filters."""
         return await self.get_all(skip=skip, limit=limit, **filters)
 
@@ -117,11 +116,7 @@ class BaseRepository(ABC, Generic[T, ID]):
         """Create multiple entities. Default implementation."""
         return [await self.create(item) for item in items]
 
-    async def update_many(
-        self,
-        ids: List[ID],
-        data: Dict[str, Any]
-    ) -> List[T]:
+    async def update_many(self, ids: List[ID], data: Dict[str, Any]) -> List[T]:
         """Update multiple entities. Default implementation."""
         results = []
         for id in ids:
@@ -142,6 +137,7 @@ class BaseRepository(ABC, Generic[T, ID]):
 # =============================================================================
 # In-Memory Repository (for testing/prototyping)
 # =============================================================================
+
 
 class InMemoryRepository(BaseRepository[Dict[str, Any], int]):
     """
@@ -170,31 +166,23 @@ class InMemoryRepository(BaseRepository[Dict[str, Any], int]):
         """Get entity by ID."""
         return self._storage.get(id)
 
-    async def get_all(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters
-    ) -> List[Dict[str, Any]]:
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters) -> List[Dict[str, Any]]:
         """Get all entities with pagination and filters."""
         items = list(self._storage.values())
 
         # Apply filters
         if filters:
-            items = [
-                item for item in items
-                if all(item.get(k) == v for k, v in filters.items())
-            ]
+            items = [item for item in items if all(item.get(k) == v for k, v in filters.items())]
 
         # Apply pagination
-        return items[skip:skip + limit]
+        return items[skip : skip + limit]
 
     async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new entity."""
         entity = data.copy()
         entity["id"] = self._next_id()
-        entity["created_at"] = datetime.utcnow()
-        entity["updated_at"] = datetime.utcnow()
+        entity["created_at"] = datetime.now(timezone.utc)
+        entity["updated_at"] = datetime.now(timezone.utc)
         self._storage[entity["id"]] = entity
         return entity
 
@@ -207,7 +195,7 @@ class InMemoryRepository(BaseRepository[Dict[str, Any], int]):
         for key, value in data.items():
             if value is not None:  # Only update non-None values
                 entity[key] = value
-        entity["updated_at"] = datetime.utcnow()
+        entity["updated_at"] = datetime.now(timezone.utc)
         return entity
 
     async def delete(self, id: int) -> bool:
@@ -232,6 +220,7 @@ class InMemoryRepository(BaseRepository[Dict[str, Any], int]):
 # =============================================================================
 # Typed In-Memory Repository
 # =============================================================================
+
 
 class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
     """
@@ -269,18 +258,15 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
             return model.model_dump()
         elif hasattr(model, "dict"):
             return model.dict()
-        return dict(model)
+        elif hasattr(model, "__dict__"):
+            return {k: v for k, v in model.__dict__.items() if not k.startswith("_")}
+        raise TypeError(f"Cannot convert {type(model).__name__} to dict")
 
     async def get(self, id: int) -> Optional[T]:
         """Get entity by ID."""
         return self._storage.get(id)
 
-    async def get_all(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters
-    ) -> List[T]:
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters) -> List[T]:
         """Get all entities with pagination and filters."""
         items = list(self._storage.values())
 
@@ -293,7 +279,7 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
                     filtered.append(item)
             items = filtered
 
-        return items[skip:skip + limit]
+        return items[skip : skip + limit]
 
     async def create(self, data: Dict[str, Any]) -> T:
         """Create a new entity."""
@@ -301,7 +287,7 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
         entity_data["id"] = self._next_id()
 
         # Add timestamps if the model supports them
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if "created_at" not in entity_data:
             entity_data["created_at"] = now
         if "updated_at" not in entity_data:
@@ -323,7 +309,7 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
             if value is not None:
                 existing_dict[key] = value
 
-        existing_dict["updated_at"] = datetime.utcnow()
+        existing_dict["updated_at"] = datetime.now(timezone.utc)
 
         entity = self._to_model(existing_dict)
         self._storage[id] = entity
@@ -353,8 +339,10 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
 # =============================================================================
 
 try:
+    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import func, select
+    from sqlalchemy import update as sa_update
     from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy import select, func, delete as sa_delete, update as sa_update
     from sqlalchemy.orm import DeclarativeBase
 
     SQLALCHEMY_AVAILABLE = True
@@ -384,12 +372,7 @@ try:
             result = await self.session.get(self.model_class, id)
             return result
 
-        async def get_all(
-            self,
-            skip: int = 0,
-            limit: int = 100,
-            **filters
-        ) -> List[T]:
+        async def get_all(self, skip: int = 0, limit: int = 100, **filters) -> List[T]:
             """Get all entities with pagination and filters."""
             query = select(self.model_class)
 
@@ -462,6 +445,7 @@ except ImportError:
 # Repository Factory
 # =============================================================================
 
+
 class RepositoryFactory:
     """
     Factory for creating repository instances.
@@ -512,10 +496,8 @@ class RepositoryFactory:
 # Utility Functions
 # =============================================================================
 
-def create_repository(
-    model_class: Type[T],
-    storage: str = "memory"
-) -> BaseRepository[T, int]:
+
+def create_repository(model_class: Type[T], storage: str = "memory") -> BaseRepository[T, int]:
     """
     Create a repository for a model.
 

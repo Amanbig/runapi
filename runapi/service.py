@@ -9,16 +9,13 @@ Provides:
 - Dependency injection utilities
 """
 
-from abc import ABC, abstractmethod
-from typing import (
-    TypeVar, Generic, List, Optional, Dict, Any, Type,
-    Callable, Union, Awaitable
-)
-from functools import wraps
 import logging
+from abc import ABC, abstractmethod
+from functools import wraps
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Type, TypeVar
 
-from .repository import BaseRepository, RepositoryProtocol
-from .errors import NotFoundError, ValidationError
+from .errors import NotFoundError
+from .repository import BaseRepository
 
 logger = logging.getLogger("runapi.service")
 
@@ -32,6 +29,7 @@ UpdateSchema = TypeVar("UpdateSchema")
 # =============================================================================
 # Base Service (Abstract)
 # =============================================================================
+
 
 class BaseService(ABC, Generic[T, ID]):
     """
@@ -87,6 +85,7 @@ class BaseService(ABC, Generic[T, ID]):
 # CRUD Service (Ready-to-use)
 # =============================================================================
 
+
 class CRUDService(BaseService[T, ID], Generic[T, ID]):
     """
     Ready-to-use CRUD service with common operations.
@@ -133,12 +132,7 @@ class CRUDService(BaseService[T, ID], Generic[T, ID]):
         """Get an entity by ID, returning None if not found."""
         return await self.repository.get(id)
 
-    async def get_all(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters
-    ) -> List[T]:
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters) -> List[T]:
         """Get all entities with pagination and optional filters."""
         return await self.repository.get_all(skip=skip, limit=limit, **filters)
 
@@ -208,6 +202,7 @@ class CRUDService(BaseService[T, ID], Generic[T, ID]):
 # Service with Validation
 # =============================================================================
 
+
 class ValidatedService(CRUDService[T, ID], Generic[T, ID]):
     """
     CRUD service with schema validation support.
@@ -265,6 +260,7 @@ class ValidatedService(CRUDService[T, ID], Generic[T, ID]):
 # Service Decorators
 # =============================================================================
 
+
 def validate_input(schema: Type):
     """
     Decorator to validate input data against a Pydantic schema.
@@ -275,6 +271,7 @@ def validate_input(schema: Type):
             async def create(self, data: dict) -> User:
                 return await self.repository.create(data)
     """
+
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(self, data: Dict[str, Any], *args, **kwargs):
@@ -286,7 +283,9 @@ def validate_input(schema: Type):
             else:
                 validated_data = data
             return await func(self, validated_data, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -300,6 +299,7 @@ def require_exists(entity_name: str = "Entity"):
             async def update(self, id: int, data: dict) -> User:
                 return await self.repository.update(id, data)
     """
+
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(self, id: Any, *args, **kwargs):
@@ -307,7 +307,9 @@ def require_exists(entity_name: str = "Entity"):
             if not exists:
                 raise NotFoundError(f"{entity_name} with id {id} not found")
             return await func(self, id, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -321,6 +323,7 @@ def log_operation(operation_name: str = None):
             async def create(self, data: dict) -> User:
                 return await self.repository.create(data)
     """
+
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
@@ -333,13 +336,16 @@ def log_operation(operation_name: str = None):
             except Exception as e:
                 logger.error(f"Failed operation: {op_name} - {e}")
                 raise
+
         return wrapper
+
     return decorator
 
 
 # =============================================================================
 # Service Factory
 # =============================================================================
+
 
 class ServiceFactory:
     """
@@ -359,13 +365,7 @@ class ServiceFactory:
     _factories: Dict[str, tuple] = {}
 
     @classmethod
-    def register(
-        cls,
-        name: str,
-        service_class: Type[BaseService],
-        *args,
-        **kwargs
-    ) -> None:
+    def register(cls, name: str, service_class: Type[BaseService], *args, **kwargs) -> None:
         """
         Register a service factory.
 
@@ -415,10 +415,9 @@ class ServiceFactory:
 # Dependency Injection Helper
 # =============================================================================
 
+
 def create_service_dependency(
-    service_class: Type[BaseService],
-    repository_class: Type[BaseRepository],
-    **service_kwargs
+    service_class: Type[BaseService], repository_class: Type[BaseRepository], **service_kwargs
 ) -> Callable:
     """
     Create a FastAPI dependency for a service.
@@ -450,9 +449,9 @@ def create_service_dependency(
 # Utility Functions
 # =============================================================================
 
+
 def create_crud_service(
-    repository: BaseRepository[T, ID],
-    entity_name: str = "Entity"
+    repository: BaseRepository[T, ID], entity_name: str = "Entity"
 ) -> CRUDService[T, ID]:
     """
     Quick factory to create a CRUD service.

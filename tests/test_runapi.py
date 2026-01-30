@@ -2,65 +2,60 @@
 Comprehensive test script for RunApi framework functionality
 Tests core features including routing, middleware, authentication, and configuration
 """
+
 import asyncio
 import os
 import tempfile
-import shutil
 from pathlib import Path
-import json
-import httpx
+
 from fastapi.testclient import TestClient
 
 
 def test_basic_app_creation():
     """Test basic RunApi app creation"""
     print("🧪 Testing basic app creation...")
-    
+
     from runapi import create_runapi_app
-    
-    app = create_runapi_app(
-        title="Test API",
-        description="Test RunApi API",
-        version="1.0.0"
-    )
-    
+
+    app = create_runapi_app(title="Test API", description="Test RunApi API", version="1.0.0")
+
     fastapi_app = app.get_app()
-    
+
     assert fastapi_app.title == "Test API"
     assert fastapi_app.description == "Test RunApi API"
     assert fastapi_app.version == "1.0.0"
-    
+
     print("✅ Basic app creation test passed!")
 
 
 def test_configuration_system():
     """Test configuration management"""
     print("🧪 Testing configuration system...")
-    
+
     from runapi.config import RunApiConfig
-    
+
     # Test with environment variables
-    os.environ['DEBUG'] = 'true'
-    os.environ['HOST'] = '0.0.0.0'
-    os.environ['PORT'] = '9000'
-    os.environ['SECRET_KEY'] = 'test-secret-key'
-    
+    os.environ["DEBUG"] = "true"
+    os.environ["HOST"] = "0.0.0.0"
+    os.environ["PORT"] = "9000"
+    os.environ["SECRET_KEY"] = "test-secret-key"
+
     config = RunApiConfig()
-    
+
     assert config.debug == True
-    assert config.host == '0.0.0.0'
+    assert config.host == "0.0.0.0"
     assert config.port == 9000
-    assert config.secret_key == 'test-secret-key'
-    
+    assert config.secret_key == "test-secret-key"
+
     print("✅ Configuration system test passed!")
 
 
 def test_error_handling():
     """Test error handling system"""
     print("🧪 Testing error handling...")
-    
-    from runapi import ValidationError, NotFoundError, create_error_response
-    
+
+    from runapi import ValidationError, create_error_response
+
     # Test custom exceptions
     try:
         raise ValidationError("Test validation error", {"field": "username"})
@@ -68,16 +63,14 @@ def test_error_handling():
         assert e.status_code == 400
         assert e.error_code == "VALIDATION_ERROR"
         assert e.details == {"field": "username"}
-    
+
     # Test error response creation
     error_response = create_error_response(
-        message="Test error",
-        status_code=404,
-        error_code="TEST_ERROR"
+        message="Test error", status_code=404, error_code="TEST_ERROR"
     )
-    
+
     assert error_response.status_code == 404
-    
+
     print("✅ Error handling test passed!")
 
 
@@ -86,7 +79,7 @@ def test_authentication_system():
     print("🧪 Testing authentication system...")
 
     # Set a proper secret key for testing BEFORE importing
-    os.environ['SECRET_KEY'] = 'test-secret-key-at-least-32-characters-long'
+    os.environ["SECRET_KEY"] = "test-secret-key-at-least-32-characters-long"
 
     # Use JWTManager directly with a custom secret key to avoid config caching issues
     from runapi.auth import JWTManager
@@ -94,15 +87,11 @@ def test_authentication_system():
     jwt_manager = JWTManager(secret_key="test-secret-key-at-least-32-characters-long")
 
     # Test token creation and verification
-    user_data = {
-        "sub": "user123",
-        "username": "testuser",
-        "roles": ["user"]
-    }
+    user_data = {"sub": "user123", "username": "testuser", "roles": ["user"]}
 
     token = jwt_manager.create_access_token(user_data)
     assert isinstance(token, str)
-    assert len(token.split('.')) == 3  # JWT has 3 parts
+    assert len(token.split(".")) == 3  # JWT has 3 parts
 
     # Test token verification
     payload = jwt_manager.verify_token(token)
@@ -116,29 +105,29 @@ def test_authentication_system():
 def test_file_based_routing():
     """Test file-based routing system"""
     print("🧪 Testing file-based routing...")
-    
+
     # Create a temporary directory for testing
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         routes_path = temp_path / "routes"
         routes_path.mkdir()
-        
+
         # Create a simple route file
-        index_route = '''
+        index_route = """
 from runapi import JSONResponse
 
 async def get():
     return JSONResponse({"message": "Hello from test route!"})
-'''
-        
-        (routes_path / "index.py").write_text(index_route, encoding='utf-8')
-        
+"""
+
+        (routes_path / "index.py").write_text(index_route, encoding="utf-8")
+
         # Create API route
         api_path = routes_path / "api"
         api_path.mkdir()
         (api_path / "__init__.py").touch()
-        
-        test_route = '''
+
+        test_route = """
 from runapi import JSONResponse, Request
 
 async def get():
@@ -146,19 +135,20 @@ async def get():
 
 async def post(request: Request):
     return JSONResponse({"endpoint": "test", "method": "POST"})
-'''
-        
-        (api_path / "test.py").write_text(test_route, encoding='utf-8')
-        
+"""
+
+        (api_path / "test.py").write_text(test_route, encoding="utf-8")
+
         # Change to temp directory to test route loading
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
-            
+
             from runapi import create_runapi_app
+
             app = create_runapi_app()
             fastapi_app = app.get_app()
-            
+
             # Test with TestClient
             with TestClient(fastapi_app) as client:
                 # Test index route
@@ -166,77 +156,78 @@ async def post(request: Request):
                 assert response.status_code == 200
                 data = response.json()
                 assert data["message"] == "Hello from test route!"
-                
+
                 # Test API route
                 response = client.get("/api/test")
                 assert response.status_code == 200
                 data = response.json()
                 assert data["endpoint"] == "test"
                 assert data["method"] == "GET"
-                
+
                 # Test POST to API route
                 response = client.post("/api/test", json={"test": "data"})
                 assert response.status_code == 200
                 data = response.json()
                 assert data["method"] == "POST"
-            
+
         finally:
             os.chdir(old_cwd)
-    
+
     print("✅ File-based routing test passed!")
 
 
 def test_middleware_system():
     """Test middleware system"""
     print("🧪 Testing middleware system...")
-    
-    from runapi import create_runapi_app, RunApiMiddleware
-    
+
+    from runapi import RunApiMiddleware, create_runapi_app
+
     # Custom test middleware
     class TestMiddleware(RunApiMiddleware):
         async def dispatch(self, request, call_next):
             response = await call_next(request)
             response.headers["X-Test-Middleware"] = "active"
             return response
-    
+
     app = create_runapi_app()
     app.add_middleware(TestMiddleware)
-    
+
     # Create a simple route for testing
     from fastapi import APIRouter
+
     router = APIRouter()
-    
+
     @router.get("/test-middleware")
     async def test_endpoint():
         return {"message": "middleware test"}
-    
+
     app.get_app().include_router(router)
-    
+
     # Test middleware
     with TestClient(app.get_app()) as client:
         response = client.get("/test-middleware")
         assert response.status_code == 200
         assert response.headers.get("X-Test-Middleware") == "active"
-    
+
     print("✅ Middleware system test passed!")
 
 
 def test_dynamic_routes():
     """Test dynamic route parameters"""
     print("🧪 Testing dynamic routes...")
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         routes_path = temp_path / "routes"
         routes_path.mkdir()
-        
+
         # Create users directory
         users_path = routes_path / "users"
         users_path.mkdir()
         (users_path / "__init__.py").touch()
-        
+
         # Create dynamic route [id].py
-        dynamic_route = '''
+        dynamic_route = """
 from runapi import JSONResponse, Request
 
 async def get(request: Request):
@@ -254,18 +245,19 @@ async def put(request: Request):
         "updated": body,
         "message": f"User {user_id} updated"
     })
-'''
-        
-        (users_path / "[id].py").write_text(dynamic_route, encoding='utf-8')
-        
+"""
+
+        (users_path / "[id].py").write_text(dynamic_route, encoding="utf-8")
+
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
-            
+
             from runapi import create_runapi_app
+
             app = create_runapi_app()
             fastapi_app = app.get_app()
-            
+
             with TestClient(fastapi_app) as client:
                 # Test GET with dynamic parameter
                 response = client.get("/users/123")
@@ -273,7 +265,7 @@ async def put(request: Request):
                 data = response.json()
                 assert data["user_id"] == "123"
                 assert "User 123 retrieved" in data["message"]
-                
+
                 # Test PUT with dynamic parameter
                 test_data = {"name": "John Doe", "email": "john@example.com"}
                 response = client.put("/users/456", json=test_data)
@@ -281,37 +273,34 @@ async def put(request: Request):
                 data = response.json()
                 assert data["user_id"] == "456"
                 assert data["updated"] == test_data
-            
+
         finally:
             os.chdir(old_cwd)
-    
+
     print("✅ Dynamic routes test passed!")
 
 
 def test_cors_configuration():
     """Test CORS configuration"""
     print("🧪 Testing CORS configuration...")
-    
+
     # Set CORS configuration
-    os.environ['CORS_ORIGINS'] = 'http://localhost:3000,http://localhost:8080'
-    os.environ['CORS_CREDENTIALS'] = 'true'
-    
+    os.environ["CORS_ORIGINS"] = "http://localhost:3000,http://localhost:8080"
+    os.environ["CORS_CREDENTIALS"] = "true"
+
     from runapi import create_runapi_app
+
     app = create_runapi_app()
-    
+
     with TestClient(app.get_app()) as client:
         # Test preflight request
         response = client.options(
-            "/",
-            headers={
-                "Origin": "http://localhost:3000",
-                "Access-Control-Request-Method": "GET"
-            }
+            "/", headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"}
         )
-        
+
         # Should allow the request
         assert response.status_code in [200, 204]
-    
+
     print("✅ CORS configuration test passed!")
 
 
@@ -326,13 +315,14 @@ def test_static_file_serving():
 
         # Create a test file
         test_file = static_path / "test.txt"
-        test_file.write_text("Hello from static file!", encoding='utf-8')
+        test_file.write_text("Hello from static file!", encoding="utf-8")
 
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
 
             from runapi import create_runapi_app
+
             app = create_runapi_app()
 
             with TestClient(app.get_app()) as client:
@@ -350,29 +340,24 @@ def test_schema_system():
     """Test schema base classes and utilities"""
     print("🧪 Testing schema system...")
 
+    from datetime import datetime
+    from typing import Optional
+
     from runapi import (
         BaseSchema,
-        TimestampMixin,
         IDMixin,
         MessageResponse,
         PaginatedResponse,
         PaginationParams,
+        TimestampMixin,
     )
-    from datetime import datetime
-    from pydantic import Field
-    from typing import Optional
 
     # Test BaseSchema
     class UserResponse(BaseSchema, IDMixin, TimestampMixin):
         email: str
         name: Optional[str] = None
 
-    user = UserResponse(
-        id=1,
-        email="test@example.com",
-        name="Test User",
-        created_at=datetime.now()
-    )
+    user = UserResponse(id=1, email="test@example.com", name="Test User", created_at=datetime.now())
 
     assert user.id == 1
     assert user.email == "test@example.com"
@@ -410,7 +395,7 @@ def test_schema_auto_discovery():
         (schemas_path / "__init__.py").touch()
 
         # Create a test schema file
-        user_schema = '''
+        user_schema = """
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -422,16 +407,16 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: Optional[str] = None
-'''
+"""
 
-        (schemas_path / "user.py").write_text(user_schema, encoding='utf-8')
+        (schemas_path / "user.py").write_text(user_schema, encoding="utf-8")
 
         # Create nested schema
         api_schemas = schemas_path / "api"
         api_schemas.mkdir()
         (api_schemas / "__init__.py").touch()
 
-        product_schema = '''
+        product_schema = """
 from pydantic import BaseModel
 
 class ProductCreate(BaseModel):
@@ -442,15 +427,15 @@ class ProductResponse(BaseModel):
     id: int
     name: str
     price: float
-'''
+"""
 
-        (api_schemas / "product.py").write_text(product_schema, encoding='utf-8')
+        (api_schemas / "product.py").write_text(product_schema, encoding="utf-8")
 
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
 
-            from runapi.schemas import load_schemas, SchemaRegistry, get_schema, list_schemas
+            from runapi.schemas import SchemaRegistry, get_schema, list_schemas, load_schemas
 
             # Clear registry before test
             SchemaRegistry.clear()
@@ -498,7 +483,7 @@ def test_schema_integration_with_routes():
         schemas_path.mkdir()
         (schemas_path / "__init__.py").touch()
 
-        user_schema = '''
+        user_schema = """
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -510,8 +495,8 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: str
-'''
-        (schemas_path / "user.py").write_text(user_schema, encoding='utf-8')
+"""
+        (schemas_path / "user.py").write_text(user_schema, encoding="utf-8")
 
         # Create routes directory
         routes_path = temp_path / "routes"
@@ -543,7 +528,7 @@ async def post(request: Request):
     new_user = UserResponse(id=123, email=user_data.email, name=user_data.name)
     return JSONResponse(new_user.model_dump(), status_code=201)
 '''
-        (api_path / "users.py").write_text(users_route, encoding='utf-8')
+        (api_path / "users.py").write_text(users_route, encoding="utf-8")
 
         old_cwd = os.getcwd()
         try:
@@ -551,9 +536,11 @@ async def post(request: Request):
 
             # Add temp_dir to path so schemas can be imported
             import sys
+
             sys.path.insert(0, temp_dir)
 
             from runapi import create_runapi_app
+
             app = create_runapi_app()
             fastapi_app = app.get_app()
 
@@ -586,7 +573,6 @@ def test_repository_in_memory():
     """Test InMemoryRepository basic operations"""
     print("🧪 Testing InMemoryRepository...")
 
-    import asyncio
     from runapi import InMemoryRepository
 
     async def run_tests():
@@ -650,10 +636,11 @@ def test_typed_repository():
     """Test TypedInMemoryRepository with Pydantic models"""
     print("🧪 Testing TypedInMemoryRepository...")
 
-    import asyncio
-    from pydantic import BaseModel
-    from typing import Optional
     from datetime import datetime
+    from typing import Optional
+
+    from pydantic import BaseModel
+
     from runapi import TypedInMemoryRepository
 
     class User(BaseModel):
@@ -696,7 +683,7 @@ def test_repository_factory():
     """Test RepositoryFactory registration and creation"""
     print("🧪 Testing RepositoryFactory...")
 
-    from runapi import RepositoryFactory, InMemoryRepository
+    from runapi import InMemoryRepository, RepositoryFactory
 
     # Clear any existing registrations
     RepositoryFactory.clear()
@@ -767,13 +754,14 @@ async def post(request: Request):
     item = await items_repo.create(body)
     return JSONResponse(serialize_item(item), status_code=201)
 '''
-        (api_path / "items.py").write_text(items_route, encoding='utf-8')
+        (api_path / "items.py").write_text(items_route, encoding="utf-8")
 
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
 
             from runapi import create_runapi_app
+
             app = create_runapi_app()
             fastapi_app = app.get_app()
 
@@ -806,7 +794,6 @@ def test_crud_service():
     """Test CRUDService basic operations"""
     print("🧪 Testing CRUDService...")
 
-    import asyncio
     from runapi import CRUDService, InMemoryRepository, NotFoundError
 
     async def run_tests():
@@ -878,10 +865,11 @@ def test_validated_service():
     """Test ValidatedService with schema validation"""
     print("🧪 Testing ValidatedService...")
 
-    import asyncio
-    from pydantic import BaseModel, Field
     from typing import Optional
-    from runapi import ValidatedService, InMemoryRepository
+
+    from pydantic import BaseModel, Field
+
+    from runapi import InMemoryRepository, ValidatedService
 
     class UserCreate(BaseModel):
         name: str = Field(..., min_length=1)
@@ -924,7 +912,7 @@ def test_service_factory():
     """Test ServiceFactory registration and creation"""
     print("🧪 Testing ServiceFactory...")
 
-    from runapi import ServiceFactory, CRUDService, InMemoryRepository
+    from runapi import CRUDService, InMemoryRepository, ServiceFactory
 
     # Clear any existing registrations
     ServiceFactory.clear()
@@ -1000,13 +988,14 @@ async def post(request: Request):
     product = await product_service.create(body)
     return JSONResponse(serialize(product), status_code=201)
 '''
-        (api_path / "products.py").write_text(products_route, encoding='utf-8')
+        (api_path / "products.py").write_text(products_route, encoding="utf-8")
 
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
 
             from runapi import create_runapi_app
+
             app = create_runapi_app()
             fastapi_app = app.get_app()
 
@@ -1038,7 +1027,7 @@ async def post(request: Request):
 def run_all_tests():
     """Run all tests"""
     print("🚀 Starting RunApi Framework Tests\n")
-    
+
     tests = [
         test_basic_app_creation,
         test_configuration_system,
@@ -1061,10 +1050,10 @@ def run_all_tests():
         test_service_factory,
         test_service_with_routes,
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test in tests:
         try:
             test()
@@ -1072,17 +1061,17 @@ def run_all_tests():
         except Exception as e:
             print(f"❌ Test {test.__name__} failed: {e}")
             failed += 1
-    
-    print(f"\n📊 Test Results:")
+
+    print("\n📊 Test Results:")
     print(f"✅ Passed: {passed}")
     print(f"❌ Failed: {failed}")
-    print(f"📈 Success Rate: {passed/(passed+failed)*100:.1f}%")
-    
+    print(f"📈 Success Rate: {passed / (passed + failed) * 100:.1f}%")
+
     if failed == 0:
         print("\n🎉 All tests passed! RunApi framework is working correctly.")
     else:
         print(f"\n⚠️  {failed} test(s) failed. Please check the output above.")
-    
+
     return failed == 0
 
 

@@ -9,13 +9,14 @@ Provides:
 - Utility functions for schema operations
 """
 
-from pydantic import BaseModel, ConfigDict, Field
-from typing import TypeVar, Generic, List, Optional, Dict, Any, Type
-from datetime import datetime
-from pathlib import Path
 import importlib.util
 import logging
 import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger("runapi.schemas")
 
@@ -26,6 +27,7 @@ T = TypeVar("T")
 # =============================================================================
 # Schema Registry
 # =============================================================================
+
 
 class SchemaRegistry:
     """
@@ -72,6 +74,7 @@ class SchemaRegistry:
 # Base Schema Classes
 # =============================================================================
 
+
 class BaseSchema(BaseModel):
     """
     Base schema class with sensible defaults for API development.
@@ -92,9 +95,7 @@ class BaseSchema(BaseModel):
         from_attributes=True,  # Enable ORM mode (formerly orm_mode)
         validate_assignment=True,  # Validate on attribute assignment
         str_strip_whitespace=True,  # Strip whitespace from strings
-        json_encoders={
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        ser_json_timedelta="iso8601",  # Pydantic v2 handles datetime ISO serialization by default
     )
 
 
@@ -114,6 +115,7 @@ class IDMixin(BaseModel):
 # =============================================================================
 # Common Response Schemas
 # =============================================================================
+
 
 class MessageResponse(BaseSchema):
     """Simple message response."""
@@ -139,21 +141,11 @@ class PaginatedResponse(BaseSchema, Generic[T]):
 
     @classmethod
     def create(
-        cls,
-        items: List[T],
-        total: int,
-        page: int = 1,
-        page_size: int = 20
+        cls, items: List[T], total: int, page: int = 1, page_size: int = 20
     ) -> "PaginatedResponse[T]":
         """Factory method to create paginated response."""
         pages = (total + page_size - 1) // page_size if page_size > 0 else 0
-        return cls(
-            items=items,
-            total=total,
-            page=page,
-            page_size=page_size,
-            pages=pages
-        )
+        return cls(items=items, total=total, page=page, page_size=page_size, pages=pages)
 
 
 class PaginationParams(BaseSchema):
@@ -194,6 +186,7 @@ class ErrorResponse(BaseSchema):
 # Schema Discovery
 # =============================================================================
 
+
 def load_schemas(schemas_path: Path = None, logger: logging.Logger = None) -> Dict[str, Any]:
     """
     Load schemas from the schemas/ directory.
@@ -228,10 +221,7 @@ def load_schemas(schemas_path: Path = None, logger: logging.Logger = None) -> Di
 
 
 def _load_schemas_recursive(
-    schemas_dir: Path,
-    prefix: str,
-    loaded_modules: Dict[str, Any],
-    logger: logging.Logger
+    schemas_dir: Path, prefix: str, loaded_modules: Dict[str, Any], logger: logging.Logger
 ) -> None:
     """Recursively load schema files from directory structure."""
 
@@ -250,10 +240,7 @@ def _load_schemas_recursive(
 
 
 def _load_schema_file(
-    schema_file: Path,
-    prefix: str,
-    loaded_modules: Dict[str, Any],
-    logger: logging.Logger
+    schema_file: Path, prefix: str, loaded_modules: Dict[str, Any], logger: logging.Logger
 ) -> None:
     """Load a single schema file and register its Pydantic models."""
 
@@ -263,6 +250,10 @@ def _load_schema_file(
 
         # Import the module
         spec = importlib.util.spec_from_file_location(module_name, schema_file)
+        if spec is None or spec.loader is None:
+            logger.warning(f"Could not load spec for schema {schema_file}")
+            return
+
         module = importlib.util.module_from_spec(spec)
 
         # Add to sys.modules so relative imports work
@@ -284,6 +275,14 @@ def _load_schema_file(
                 # Register with full path and short name
                 full_name = f"{module_name}.{attr_name}"
                 SchemaRegistry.register(full_name, attr)
+
+                # Check for short name collision before registering
+                existing = SchemaRegistry.get(attr_name)
+                if existing is not None and existing is not attr:
+                    logger.warning(
+                        f"Schema name collision: '{attr_name}' from {module_name} "
+                        f"shadows existing schema. Use full path '{full_name}' to disambiguate."
+                    )
                 SchemaRegistry.register(attr_name, attr)  # Also register short name
 
         logger.debug(f"Loaded schema module: {module_name}")
@@ -314,12 +313,9 @@ def list_schemas() -> List[str]:
 # Schema Utilities
 # =============================================================================
 
+
 def create_response_model(
-    name: str,
-    *,
-    include_id: bool = True,
-    include_timestamps: bool = True,
-    **fields: Any
+    name: str, *, include_id: bool = True, include_timestamps: bool = True, **fields: Any
 ) -> Type[BaseSchema]:
     """
     Dynamically create a response schema.
@@ -343,10 +339,7 @@ def create_response_model(
     return type(name, tuple(bases), {"__annotations__": fields})
 
 
-def create_create_model(
-    name: str,
-    **fields: Any
-) -> Type[BaseSchema]:
+def create_create_model(name: str, **fields: Any) -> Type[BaseSchema]:
     """
     Dynamically create a 'create' schema (no ID, no timestamps).
 
@@ -360,26 +353,30 @@ def create_create_model(
     return type(name, (BaseSchema,), {"__annotations__": fields})
 
 
-def create_update_model(
-    name: str,
-    **fields: Any
-) -> Type[BaseSchema]:
+def create_update_model(name: str, **fields: Any) -> Type[BaseSchema]:
     """
     Dynamically create an 'update' schema (all fields optional).
 
     Example:
         UserUpdate = create_update_model(
             "UserUpdate",
-            email=(Optional[str], None),
-            name=(Optional[str], None)
+            email=str,
+            name=str
         )
     """
-    # Make all fields optional
-    optional_fields = {}
+    # Make all fields optional with None defaults
+    annotations = {}
+    field_defaults = {}
+
     for field_name, field_type in fields.items():
         if isinstance(field_type, tuple):
-            optional_fields[field_name] = (Optional[field_type[0]], None)
+            # If tuple provided, use first element as type
+            annotations[field_name] = Optional[field_type[0]]
         else:
-            optional_fields[field_name] = (Optional[field_type], None)
+            annotations[field_name] = Optional[field_type]
+        field_defaults[field_name] = None
 
-    return type(name, (BaseSchema,), {"__annotations__": optional_fields})
+    namespace = {"__annotations__": annotations}
+    namespace.update(field_defaults)
+
+    return type(name, (BaseSchema,), namespace)

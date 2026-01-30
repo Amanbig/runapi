@@ -53,8 +53,7 @@ Changelog = "https://github.com/Amanbig/runapi/releases"
 dev = [
     "pytest>=7.0.0",
     "httpx>=0.24.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
+    "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
 test = [
@@ -63,6 +62,54 @@ test = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
 ]
+lint = [
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
 
 [project.scripts]
 runapi = "runapi.cli:main"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+    "B905",   # zip without explicit strict parameter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["runapi"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    "build/",
+    "dist/",
+]
