@@ -25,6 +25,9 @@ A Next.js-inspired file-based routing framework built on FastAPI for Python back
 - 🔧 **CLI tools** - Command-line interface for project management
 - 📝 **Auto-documentation** - Automatic API documentation via FastAPI
 - 🎯 **Type hints** - Full typing support with Pydantic integration
+- 📦 **Schema layer** - Auto-discovered Pydantic models with base classes
+- 🗄️ **Repository pattern** - Data access abstraction with in-memory and SQLAlchemy support
+- 🧩 **Service layer** - Business logic separation with CRUD services
 
 ## Installation
 
@@ -41,6 +44,10 @@ pip install runapi
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [Project Architecture](#project-architecture)
+- [Schemas](#schemas)
+- [Repositories](#repositories)
+- [Services](#services)
 - [Configuration](#configuration)
 - [Authentication](#authentication)
 - [Middleware](#middleware)
@@ -72,8 +79,14 @@ my-api/
 │       ├── users.py    # GET, POST /api/users
 │       └── users/
 │           └── [id].py # GET, PUT, DELETE /api/users/{id}
+├── schemas/            # Pydantic models (auto-discovered)
+│   └── user.py         # UserCreate, UserResponse, etc.
+├── repositories/       # Data access layer
+│   └── user.py         # UserRepository
+├── services/           # Business logic layer
+│   └── user.py         # UserService
 ├── static/             # Static files
-├── uploads/            # File uploads directory  
+├── uploads/            # File uploads directory
 ├── main.py            # Application entry point
 ├── .env               # Configuration file
 └── README.md
@@ -136,6 +149,314 @@ Once your server is running, you can access:
 - **Interactive API Documentation**: `http://localhost:8000/docs` (Swagger UI)
 - **Alternative Documentation**: `http://localhost:8000/redoc` (ReDoc)
 - **OpenAPI JSON Schema**: `http://localhost:8000/openapi.json`
+
+## Project Architecture
+
+runapi follows a clean architecture pattern separating concerns into layers:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Routes (routes/)                        │
+│              Thin HTTP handlers - file-based                │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│                   Services (services/)                       │
+│           Business logic, validation, orchestration          │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│                 Repositories (repositories/)                 │
+│              Data access abstraction (CRUD)                  │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│                   Schemas (schemas/)                         │
+│         Pydantic models for validation & serialization       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+This separation provides:
+- **Testability**: Each layer can be tested independently
+- **Maintainability**: Clear boundaries between concerns
+- **Flexibility**: Swap implementations without affecting other layers
+
+## Schemas
+
+Schemas define your data models using Pydantic. They are **auto-discovered** from the `schemas/` directory.
+
+### Generate a Schema
+
+```bash
+runapi generate schema user
+```
+
+This creates `schemas/user.py` with boilerplate classes.
+
+### Schema Base Classes
+
+```python
+from runapi import BaseSchema, IDMixin, TimestampMixin
+from pydantic import Field
+from typing import Optional
+
+# Base schema with ORM support and validation
+class UserBase(BaseSchema):
+    email: str = Field(..., description="User email")
+    name: str = Field(..., min_length=1, max_length=100)
+
+# Schema for creating (no ID, no timestamps)
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=8)
+
+# Schema for updating (all fields optional)
+class UserUpdate(BaseSchema):
+    email: Optional[str] = None
+    name: Optional[str] = None
+
+# Schema for responses (includes ID and timestamps)
+class UserResponse(UserBase, IDMixin, TimestampMixin):
+    pass
+```
+
+### Built-in Schema Utilities
+
+```python
+from runapi import (
+    BaseSchema,          # Base with ORM mode, validation
+    IDMixin,             # Adds 'id: int' field
+    TimestampMixin,      # Adds 'created_at', 'updated_at'
+    MessageResponse,     # Simple {"message": str, "success": bool}
+    PaginatedResponse,   # Generic paginated list wrapper
+    PaginationParams,    # Query params with offset/limit
+)
+
+# Pagination example
+from runapi import PaginatedResponse, PaginationParams
+
+async def get_users(params: PaginationParams):
+    users = await user_service.get_all(
+        skip=params.offset,
+        limit=params.limit
+    )
+    total = await user_service.count()
+    return PaginatedResponse.create(
+        items=users,
+        total=total,
+        page=params.page,
+        page_size=params.page_size
+    )
+```
+
+### Using Schemas in Routes
+
+```python
+# routes/api/users.py
+from runapi import JSONResponse, Request
+from schemas.user import UserCreate, UserResponse
+
+async def post(request: Request):
+    body = await request.json()
+    user_data = UserCreate(**body)  # Validates input
+    # ... create user logic
+    return JSONResponse(UserResponse(**user).model_dump())
+```
+
+## Repositories
+
+Repositories abstract data access, making it easy to swap storage backends.
+
+### Generate a Repository
+
+```bash
+runapi generate repository user
+```
+
+### In-Memory Repository (Prototyping)
+
+```python
+from runapi import InMemoryRepository
+
+class UserRepository(InMemoryRepository):
+    """In-memory storage - great for development/testing."""
+
+    async def find_by_email(self, email: str):
+        return await self.get_by(email=email)
+
+    async def find_active_users(self):
+        return await self.get_many_by(is_active=True)
+
+# Usage
+repo = UserRepository()
+user = await repo.create({"name": "John", "email": "john@example.com"})
+users = await repo.get_all(skip=0, limit=10)
+await repo.update(1, {"name": "Johnny"})
+await repo.delete(1)
+```
+
+### Typed Repository (with Pydantic models)
+
+```python
+from runapi import TypedInMemoryRepository
+from schemas.user import UserResponse
+
+class UserRepository(TypedInMemoryRepository[UserResponse]):
+    def __init__(self):
+        super().__init__(UserResponse)
+
+    async def find_by_email(self, email: str):
+        return await self.get_by(email=email)
+
+# Returns UserResponse instances, not dicts
+user = await repo.create({"name": "John", "email": "john@example.com"})
+assert isinstance(user, UserResponse)
+```
+
+### SQLAlchemy Repository (Production)
+
+```python
+from runapi import SQLAlchemyRepository, SQLALCHEMY_AVAILABLE
+from sqlalchemy.ext.asyncio import AsyncSession
+
+if SQLALCHEMY_AVAILABLE:
+    class UserRepository(SQLAlchemyRepository[UserModel, int]):
+        def __init__(self, session: AsyncSession):
+            super().__init__(session, UserModel)
+
+        async def find_by_email(self, email: str):
+            return await self.get_by(email=email)
+```
+
+### Repository Methods
+
+All repositories provide these methods:
+
+| Method | Description |
+|--------|-------------|
+| `get(id)` | Get by ID |
+| `get_all(skip, limit, **filters)` | Get all with pagination |
+| `get_by(**filters)` | Get single matching filters |
+| `create(data)` | Create new entity |
+| `update(id, data)` | Update existing entity |
+| `delete(id)` | Delete entity |
+| `count(**filters)` | Count entities |
+| `exists(id)` | Check if exists |
+
+## Services
+
+Services contain business logic, sitting between routes and repositories.
+
+### Generate a Service
+
+```bash
+runapi generate service user
+```
+
+### CRUD Service (Ready-to-use)
+
+```python
+from runapi import CRUDService, InMemoryRepository
+
+class UserService(CRUDService):
+    """Inherits all CRUD operations with error handling."""
+
+    async def register(self, data: dict):
+        # Business logic: check if email exists
+        existing = await self.repository.get_by(email=data["email"])
+        if existing:
+            raise ValidationError("Email already registered")
+        return await self.create(data)
+
+    async def deactivate(self, user_id: int):
+        return await self.update(user_id, {"is_active": False})
+
+# Usage
+user_repo = UserRepository()
+user_service = UserService(user_repo, entity_name="User")
+
+# Built-in methods with error handling
+user = await user_service.get(1)  # Raises NotFoundError if missing
+users = await user_service.get_all(skip=0, limit=10)
+new_user = await user_service.create({"name": "John"})
+await user_service.update(1, {"name": "Johnny"})
+await user_service.delete(1)  # Raises NotFoundError if missing
+```
+
+### Validated Service (with Schema Validation)
+
+```python
+from runapi import ValidatedService
+from schemas.user import UserCreate, UserUpdate
+
+class UserService(ValidatedService):
+    create_schema = UserCreate  # Auto-validates on create
+    update_schema = UserUpdate  # Auto-validates on update
+
+# Input is validated against schemas automatically
+user = await user_service.create({
+    "name": "John",
+    "email": "john@example.com",
+    "password": "secure123"
+})
+```
+
+### Complete Example: Routes + Service + Repository
+
+```python
+# repositories/user.py
+from runapi import InMemoryRepository
+
+class UserRepository(InMemoryRepository):
+    async def find_by_email(self, email: str):
+        return await self.get_by(email=email)
+
+# services/user.py
+from runapi import CRUDService, ValidationError
+
+class UserService(CRUDService):
+    async def register(self, data: dict):
+        if await self.repository.get_by(email=data["email"]):
+            raise ValidationError("Email exists")
+        return await self.create(data)
+
+# routes/api/users.py
+from runapi import JSONResponse, Request
+from repositories.user import UserRepository
+from services.user import UserService
+
+user_repo = UserRepository()
+user_service = UserService(user_repo, "User")
+
+async def get():
+    users = await user_service.get_all()
+    return JSONResponse(users)
+
+async def post(request: Request):
+    body = await request.json()
+    user = await user_service.register(body)
+    return JSONResponse(user, status_code=201)
+```
+
+### Service Decorators
+
+```python
+from runapi import validate_input, require_exists, log_operation
+from schemas.user import UserCreate
+
+class UserService(CRUDService):
+
+    @validate_input(UserCreate)
+    async def create(self, data: dict):
+        return await self.repository.create(data)
+
+    @require_exists("User")
+    async def update(self, id: int, data: dict):
+        return await self.repository.update(id, data)
+
+    @log_operation("delete_user")
+    async def delete(self, id: int):
+        return await self.repository.delete(id)
+```
 
 ## Configuration
 
@@ -302,16 +623,37 @@ runapi init my-project
 # Run development server
 runapi dev
 
-# Generate boilerplate code
-runapi generate route users
-runapi generate middleware auth
-runapi generate main
+# Run production server (multiple workers)
+runapi start --workers 4
 
-# List all routes
-runapi routes
+# Generate boilerplate code
+runapi generate route users           # Create route file
+runapi generate schema user           # Create schema with base classes
+runapi generate repository user       # Create repository with CRUD
+runapi generate service user          # Create service with business logic
+runapi generate middleware auth       # Create custom middleware
+runapi generate main                  # Create main.py entry point
+
+# List resources
+runapi routes                         # List all API routes
+runapi schemas                        # List all schemas
 
 # Show project info
 runapi info
+```
+
+### Generator Examples
+
+```bash
+# Generate a complete user module
+runapi generate schema user
+runapi generate repository user
+runapi generate service user
+runapi generate route users --path api
+
+# Generate nested resources
+runapi generate schema product --path api
+runapi generate repository product --path api
 ```
 
 ## Advanced Usage
@@ -500,6 +842,56 @@ Raises a not found error (404).
 #### `raise_auth_error(message: str = "Authentication required")`
 Raises an authentication error (401).
 
+### Schema Classes
+
+#### `BaseSchema`
+Base Pydantic model with ORM mode, validation, and JSON serialization.
+
+#### `IDMixin`
+Mixin adding `id: int` field.
+
+#### `TimestampMixin`
+Mixin adding `created_at` and `updated_at` datetime fields.
+
+#### `PaginatedResponse[T]`
+Generic paginated response wrapper with `items`, `total`, `page`, `page_size`, `pages`.
+
+#### `PaginationParams`
+Query parameters for pagination with `page`, `page_size`, `offset`, `limit` properties.
+
+### Repository Classes
+
+#### `BaseRepository[T, ID]`
+Abstract base repository with CRUD operations.
+
+#### `InMemoryRepository`
+Dictionary-based in-memory storage for prototyping and testing.
+
+#### `TypedInMemoryRepository[T]`
+Type-safe in-memory repository returning Pydantic model instances.
+
+#### `SQLAlchemyRepository[T, ID]`
+Async SQLAlchemy repository (requires `sqlalchemy[asyncio]`).
+
+### Service Classes
+
+#### `CRUDService[T, ID]`
+Ready-to-use CRUD service with error handling for `get`, `get_all`, `create`, `update`, `delete`.
+
+#### `ValidatedService[T, ID]`
+CRUD service with automatic Pydantic schema validation.
+
+### Service Decorators
+
+#### `@validate_input(schema)`
+Validates input data against a Pydantic schema before method execution.
+
+#### `@require_exists(entity_name)`
+Ensures entity exists before method execution, raises `NotFoundError` if not.
+
+#### `@log_operation(operation_name)`
+Logs service operation start, completion, and errors.
+
 ## Route Conventions
 
 ### File Naming
@@ -612,7 +1004,10 @@ runapi dev
 
 ## Roadmap
 
-- [ ] Database integration helpers (SQLAlchemy, MongoDB)
+- [x] Schema layer with auto-discovery
+- [x] Repository pattern (in-memory, SQLAlchemy)
+- [x] Service layer with CRUD operations
+- [x] CLI generators for schemas, repositories, services
 - [ ] Built-in caching mechanisms (Redis, in-memory)
 - [ ] WebSocket routing support
 - [ ] Background task queue integration
@@ -620,6 +1015,7 @@ runapi dev
 - [ ] More authentication providers (OAuth, LDAP)
 - [ ] Performance monitoring and metrics
 - [ ] GraphQL support
+- [ ] MongoDB repository support
 
 ## Contributing
 
@@ -669,7 +1065,23 @@ Please include:
 
 ## Changelog
 
-### v0.1.2 (Latest)
+### v0.1.3 (Latest)
+- **New Feature**: Schema layer with auto-discovery from `schemas/` directory
+- **New Feature**: `BaseSchema`, `IDMixin`, `TimestampMixin` for consistent model definitions
+- **New Feature**: `PaginatedResponse` and `PaginationParams` for pagination support
+- **New Feature**: Repository pattern with `BaseRepository`, `InMemoryRepository`, `TypedInMemoryRepository`
+- **New Feature**: Optional `SQLAlchemyRepository` for async database support
+- **New Feature**: Service layer with `CRUDService`, `ValidatedService`
+- **New Feature**: Service decorators: `@validate_input`, `@require_exists`, `@log_operation`
+- **New Feature**: `ServiceFactory` and `RepositoryFactory` for dependency injection
+- **CLI**: Added `runapi generate schema <name>` command
+- **CLI**: Added `runapi generate repository <name>` command
+- **CLI**: Added `runapi generate service <name>` command
+- **CLI**: Added `runapi schemas` command to list all schemas
+- **CLI**: Updated `runapi init` to create schemas/, repositories/, services/ directories
+- **Tests**: Added 20 comprehensive tests covering all new features
+
+### v0.1.2
 - **New Feature**: Added `runapi start` command for production deployments (no-reload, multi-worker support)
 - **Performance**: Optimized startup time by ignoring irrelevant directories during route discovery
 - **Performance**: Replaced O(N) rate limiting with O(1) Fixed Window Counter algorithm
