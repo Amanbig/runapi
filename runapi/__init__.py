@@ -81,6 +81,25 @@ from .middleware import (
     create_security_middleware,
 )
 
+# Schemas
+from .schemas import (
+    BaseSchema,
+    TimestampMixin,
+    IDMixin,
+    MessageResponse,
+    PaginatedResponse,
+    PaginationParams,
+    ErrorDetail,
+    ErrorResponse as SchemaErrorResponse,
+    SchemaRegistry,
+    load_schemas,
+    get_schema,
+    list_schemas,
+    create_response_model,
+    create_create_model,
+    create_update_model,
+)
+
 # Convenience imports
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
@@ -160,9 +179,26 @@ __all__ = [
     "create_logging_middleware",
     "create_security_middleware",
     
+    # Schemas
+    "BaseSchema",
+    "TimestampMixin",
+    "IDMixin",
+    "MessageResponse",
+    "PaginatedResponse",
+    "PaginationParams",
+    "ErrorDetail",
+    "SchemaErrorResponse",
+    "SchemaRegistry",
+    "load_schemas",
+    "get_schema",
+    "list_schemas",
+    "create_response_model",
+    "create_create_model",
+    "create_update_model",
+
     # FastAPI re-exports
     "FastAPI",
-    "APIRouter", 
+    "APIRouter",
     "Depends",
     "HTTPException",
     "Request",

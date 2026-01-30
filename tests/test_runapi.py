@@ -9,7 +9,6 @@ import shutil
 from pathlib import Path
 import json
 import httpx
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -85,26 +84,32 @@ def test_error_handling():
 def test_authentication_system():
     """Test JWT authentication system"""
     print("🧪 Testing authentication system...")
-    
-    from runapi import create_access_token, verify_token
-    
+
+    # Set a proper secret key for testing BEFORE importing
+    os.environ['SECRET_KEY'] = 'test-secret-key-at-least-32-characters-long'
+
+    # Use JWTManager directly with a custom secret key to avoid config caching issues
+    from runapi.auth import JWTManager
+
+    jwt_manager = JWTManager(secret_key="test-secret-key-at-least-32-characters-long")
+
     # Test token creation and verification
     user_data = {
         "sub": "user123",
         "username": "testuser",
         "roles": ["user"]
     }
-    
-    token = create_access_token(user_data)
+
+    token = jwt_manager.create_access_token(user_data)
     assert isinstance(token, str)
     assert len(token.split('.')) == 3  # JWT has 3 parts
-    
+
     # Test token verification
-    payload = verify_token(token)
+    payload = jwt_manager.verify_token(token)
     assert payload is not None
     assert payload["sub"] == "user123"
     assert payload["username"] == "testuser"
-    
+
     print("✅ Authentication system test passed!")
 
 
@@ -313,32 +318,268 @@ def test_cors_configuration():
 def test_static_file_serving():
     """Test static file serving"""
     print("🧪 Testing static file serving...")
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         static_path = temp_path / "static"
         static_path.mkdir()
-        
+
         # Create a test file
         test_file = static_path / "test.txt"
         test_file.write_text("Hello from static file!", encoding='utf-8')
-        
+
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
-            
+
             from runapi import create_runapi_app
             app = create_runapi_app()
-            
+
             with TestClient(app.get_app()) as client:
                 response = client.get("/static/test.txt")
                 assert response.status_code == 200
                 assert response.text == "Hello from static file!"
-            
+
         finally:
             os.chdir(old_cwd)
-    
+
     print("✅ Static file serving test passed!")
+
+
+def test_schema_system():
+    """Test schema base classes and utilities"""
+    print("🧪 Testing schema system...")
+
+    from runapi import (
+        BaseSchema,
+        TimestampMixin,
+        IDMixin,
+        MessageResponse,
+        PaginatedResponse,
+        PaginationParams,
+    )
+    from datetime import datetime
+    from pydantic import Field
+    from typing import Optional
+
+    # Test BaseSchema
+    class UserResponse(BaseSchema, IDMixin, TimestampMixin):
+        email: str
+        name: Optional[str] = None
+
+    user = UserResponse(
+        id=1,
+        email="test@example.com",
+        name="Test User",
+        created_at=datetime.now()
+    )
+
+    assert user.id == 1
+    assert user.email == "test@example.com"
+    assert user.name == "Test User"
+    assert user.created_at is not None
+
+    # Test MessageResponse
+    msg = MessageResponse(message="Operation successful")
+    assert msg.message == "Operation successful"
+    assert msg.success == True
+
+    # Test PaginationParams
+    params = PaginationParams(page=2, page_size=10)
+    assert params.offset == 10  # (2-1) * 10
+    assert params.limit == 10
+
+    # Test PaginatedResponse
+    items = [user]
+    paginated = PaginatedResponse.create(items=items, total=100, page=1, page_size=10)
+    assert paginated.total == 100
+    assert paginated.pages == 10
+    assert len(paginated.items) == 1
+
+    print("✅ Schema system test passed!")
+
+
+def test_schema_auto_discovery():
+    """Test schema auto-discovery from schemas/ folder"""
+    print("🧪 Testing schema auto-discovery...")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        schemas_path = temp_path / "schemas"
+        schemas_path.mkdir()
+        (schemas_path / "__init__.py").touch()
+
+        # Create a test schema file
+        user_schema = '''
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class UserCreate(BaseModel):
+    email: str
+    name: str
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    name: Optional[str] = None
+'''
+
+        (schemas_path / "user.py").write_text(user_schema, encoding='utf-8')
+
+        # Create nested schema
+        api_schemas = schemas_path / "api"
+        api_schemas.mkdir()
+        (api_schemas / "__init__.py").touch()
+
+        product_schema = '''
+from pydantic import BaseModel
+
+class ProductCreate(BaseModel):
+    name: str
+    price: float
+
+class ProductResponse(BaseModel):
+    id: int
+    name: str
+    price: float
+'''
+
+        (api_schemas / "product.py").write_text(product_schema, encoding='utf-8')
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+
+            from runapi.schemas import load_schemas, SchemaRegistry, get_schema, list_schemas
+
+            # Clear registry before test
+            SchemaRegistry.clear()
+
+            # Load schemas
+            loaded = load_schemas(schemas_path)
+
+            assert len(loaded) >= 2, f"Expected at least 2 modules, got {len(loaded)}"
+
+            # Check registry
+            user_create = get_schema("UserCreate")
+            assert user_create is not None, "UserCreate schema not found"
+
+            user_response = get_schema("UserResponse")
+            assert user_response is not None, "UserResponse schema not found"
+
+            product_create = get_schema("ProductCreate")
+            assert product_create is not None, "ProductCreate schema not found"
+
+            # Test schema functionality
+            user = user_create(email="test@example.com", name="Test User")
+            assert user.email == "test@example.com"
+
+            # Test list_schemas
+            schema_names = list_schemas()
+            assert "UserCreate" in schema_names
+            assert "ProductResponse" in schema_names
+
+        finally:
+            os.chdir(old_cwd)
+            SchemaRegistry.clear()
+
+    print("✅ Schema auto-discovery test passed!")
+
+
+def test_schema_integration_with_routes():
+    """Test using schemas in route handlers"""
+    print("🧪 Testing schema integration with routes...")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Create schemas directory
+        schemas_path = temp_path / "schemas"
+        schemas_path.mkdir()
+        (schemas_path / "__init__.py").touch()
+
+        user_schema = '''
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class UserCreate(BaseModel):
+    email: str
+    name: str
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    name: str
+'''
+        (schemas_path / "user.py").write_text(user_schema, encoding='utf-8')
+
+        # Create routes directory
+        routes_path = temp_path / "routes"
+        routes_path.mkdir()
+        (routes_path / "__init__.py").touch()
+
+        api_path = routes_path / "api"
+        api_path.mkdir()
+        (api_path / "__init__.py").touch()
+
+        # Create route that uses schemas
+        users_route = '''
+from runapi import JSONResponse, Request
+from schemas.user import UserCreate, UserResponse
+
+async def get():
+    """Get list of users."""
+    users = [
+        {"id": 1, "email": "user1@example.com", "name": "User One"},
+        {"id": 2, "email": "user2@example.com", "name": "User Two"},
+    ]
+    return JSONResponse([UserResponse(**u).model_dump() for u in users])
+
+async def post(request: Request):
+    """Create a new user."""
+    body = await request.json()
+    user_data = UserCreate(**body)
+    # Simulate user creation
+    new_user = UserResponse(id=123, email=user_data.email, name=user_data.name)
+    return JSONResponse(new_user.model_dump(), status_code=201)
+'''
+        (api_path / "users.py").write_text(users_route, encoding='utf-8')
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+
+            # Add temp_dir to path so schemas can be imported
+            import sys
+            sys.path.insert(0, temp_dir)
+
+            from runapi import create_runapi_app
+            app = create_runapi_app()
+            fastapi_app = app.get_app()
+
+            with TestClient(fastapi_app) as client:
+                # Test GET users
+                response = client.get("/api/users")
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 2
+                assert data[0]["email"] == "user1@example.com"
+
+                # Test POST user
+                new_user_data = {"email": "new@example.com", "name": "New User"}
+                response = client.post("/api/users", json=new_user_data)
+                assert response.status_code == 201
+                data = response.json()
+                assert data["id"] == 123
+                assert data["email"] == "new@example.com"
+                assert data["name"] == "New User"
+
+        finally:
+            os.chdir(old_cwd)
+            if temp_dir in sys.path:
+                sys.path.remove(temp_dir)
+
+    print("✅ Schema integration with routes test passed!")
 
 
 def run_all_tests():
@@ -355,6 +596,9 @@ def run_all_tests():
         test_dynamic_routes,
         test_cors_configuration,
         test_static_file_serving,
+        test_schema_system,
+        test_schema_auto_discovery,
+        test_schema_integration_with_routes,
     ]
     
     passed = 0

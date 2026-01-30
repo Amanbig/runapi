@@ -17,6 +17,7 @@ from .middleware import (
     RunApiMiddleware
 )
 from .errors import setup_error_handlers
+from .schemas import load_schemas, SchemaRegistry
 
 
 class RunApiApp:
@@ -38,7 +39,10 @@ class RunApiApp:
         
         # Load routes
         self._load_routes()
-        
+
+        # Load schemas
+        self._load_schemas()
+
         # Setup static files
         self._setup_static_files()
     
@@ -109,6 +113,13 @@ class RunApiApp:
                     name="static"
                 )
     
+    def _load_schemas(self):
+        """Load schemas from project's schemas/ folder."""
+        schemas_path = Path("schemas")
+        if schemas_path.exists():
+            loaded = load_schemas(schemas_path, self.logger)
+            self.logger.debug(f"Loaded {len(loaded)} schema modules")
+
     def _load_routes(self):
         """Load routes from project's routes/ folder."""
         routes_path = Path("routes")
@@ -195,6 +206,14 @@ class RunApiApp:
     def get_app(self) -> FastAPI:
         """Get the underlying FastAPI application."""
         return self.app
+
+    def get_schema(self, name: str):
+        """Get a registered schema by name."""
+        return SchemaRegistry.get(name)
+
+    def list_schemas(self) -> List[str]:
+        """List all registered schema names."""
+        return list(SchemaRegistry.get_all().keys())
     
     def run(self, host: str = None, port: int = None, **uvicorn_kwargs):
         """Run the application with uvicorn."""
