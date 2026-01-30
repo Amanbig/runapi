@@ -41,9 +41,6 @@ class PasswordManager:
         return secrets.token_urlsafe(length)
 
 
-
-
-
 class JWTManager:
     """JWT token management utilities using python-jose."""
 

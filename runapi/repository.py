@@ -339,10 +339,8 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
 # =============================================================================
 
 try:
-
     from sqlalchemy import func, select
     from sqlalchemy.ext.asyncio import AsyncSession
-
 
     SQLALCHEMY_AVAILABLE = True
 

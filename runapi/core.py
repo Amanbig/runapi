@@ -129,7 +129,6 @@ class RunApiApp:
     def _load_routes_recursive(self, routes_dir: Path, prefix: str = ""):
         """Recursively load routes from directory structure."""
 
-
         for item in routes_dir.iterdir():
             if item.is_dir():
                 # Skip hidden directories and __pycache__
