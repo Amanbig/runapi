@@ -95,7 +95,7 @@ def dev(
             console.print(
                 "[yellow]💡 Make sure main.py exists and runapi is installed in this environment"
             )
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
         # Run uvicorn with the FastAPI app
         uvicorn.run(
@@ -110,7 +110,7 @@ def dev(
         console.print("\n[yellow]👋 Server stopped")
     except Exception as e:
         console.print(f"[red]❌ Server error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -173,7 +173,7 @@ def start(
         console.print("\n[yellow]👋 Server stopped")
     except Exception as e:
         console.print(f"[red]❌ Server error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -390,7 +390,7 @@ async def post():
     console.print("\n📁 Project structure:")
 
     # Show project structure
-    for root, dirs, files in os.walk(project_path):
+    for root, _dirs, files in os.walk(project_path):
         level = root.replace(str(project_path), "").count(os.sep)
         indent = " " * 2 * level
         console.print(f"{indent}{os.path.basename(root)}/")
@@ -468,10 +468,10 @@ async def post(request: Request):
     """Handle POST request."""
     # Get request body
     body = await request.json()
-    
+
     return JSONResponse({{
         "message": "Data received",
-        "method": "POST", 
+        "method": "POST",
         "data": body
     }})
 
@@ -868,27 +868,27 @@ from typing import Callable
 
 class {name.title()}Middleware(RunApiMiddleware):
     """Custom {name} middleware."""
-    
+
     def __init__(self, app, **kwargs):
         super().__init__(app)
         # Initialize middleware parameters
         pass
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request and response."""
         # Pre-processing
         print(f"Processing request: {{request.method}} {{request.url.path}}")
-        
+
         # Call next middleware/route
         response = await call_next(request)
-        
+
         # Post-processing
         print(f"Response status: {{response.status_code}}")
-        
+
         return response
 
 # Usage in main.py:
-# from middleware.{name} import {name.title()}Middleware  
+# from middleware.{name} import {name.title()}Middleware
 # runapi_app.add_middleware({name.title()}Middleware)
 '''
 
@@ -952,7 +952,7 @@ def routes():
                             methods.append(node.name.upper())
 
                 # Deduplicate and sort
-                methods = sorted(list(set(methods)))
+                methods = sorted(set(methods))
                 methods_str = ", ".join(methods) if methods else "No methods found"
                 table.add_row(methods_str, url_path, str(relative_path))
             except SyntaxError:

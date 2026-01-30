@@ -186,13 +186,13 @@ try:
     spec = importlib.util.spec_from_file_location("main", "main.py")
     main_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(main_module)
-    
+
     if hasattr(main_module, "app"):
         print("SUCCESS: main:app accessible")
     else:
         print("ERROR: main.app not found")
         sys.exit(1)
-        
+
 except Exception as e:
     print(f"ERROR: {e}")
     sys.exit(1)
@@ -226,7 +226,7 @@ def test_server():
     try:
         import uvicorn
         import main
-        
+
         # Test if we can create a server instance
         config = uvicorn.Config("main:app", host="127.0.0.1", port=8999)
         server = uvicorn.Server(config)
@@ -270,23 +270,23 @@ try:
     if not os.path.exists("main.py"):
         print("ERROR: main.py not found")
         sys.exit(1)
-    
+
     # Check if main can be imported
     import importlib.util
     spec = importlib.util.spec_from_file_location("main", "main.py")
     if spec is None:
         print("ERROR: Cannot load main.py")
         sys.exit(1)
-    
+
     main_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(main_module)
-    
+
     if not hasattr(main_module, "app"):
         print("ERROR: main.py does not have app attribute")
         sys.exit(1)
-    
+
     print("SUCCESS: CLI validation passed")
-    
+
 except Exception as e:
     print(f"ERROR: {e}")
     sys.exit(1)

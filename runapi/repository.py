@@ -339,11 +339,10 @@ class TypedInMemoryRepository(BaseRepository[T, int], Generic[T]):
 # =============================================================================
 
 try:
-    from sqlalchemy import delete as sa_delete
+
     from sqlalchemy import func, select
-    from sqlalchemy import update as sa_update
     from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.orm import DeclarativeBase
+
 
     SQLALCHEMY_AVAILABLE = True
 

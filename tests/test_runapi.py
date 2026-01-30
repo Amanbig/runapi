@@ -42,7 +42,7 @@ def test_configuration_system():
 
     config = RunApiConfig()
 
-    assert config.debug == True
+    assert config.debug
     assert config.host == "0.0.0.0"
     assert config.port == 9000
     assert config.secret_key == "test-secret-key"
@@ -367,7 +367,7 @@ def test_schema_system():
     # Test MessageResponse
     msg = MessageResponse(message="Operation successful")
     assert msg.message == "Operation successful"
-    assert msg.success == True
+    assert msg.success
 
     # Test PaginationParams
     params = PaginationParams(page=2, page_size=10)
@@ -610,12 +610,12 @@ def test_repository_in_memory():
         assert count == 2
 
         # Test exists
-        assert await repo.exists(1) == True
-        assert await repo.exists(999) == False
+        assert await repo.exists(1)
+        assert not await repo.exists(999)
 
         # Test delete
         deleted = await repo.delete(1)
-        assert deleted == True
+        assert deleted
 
         remaining = await repo.get_all()
         assert len(remaining) == 1
@@ -812,7 +812,7 @@ def test_crud_service():
         # Test get - not found
         try:
             await service.get(999)
-            assert False, "Should have raised NotFoundError"
+            raise AssertionError("Should have raised NotFoundError")
         except NotFoundError as e:
             assert "999" in str(e)
 
@@ -832,24 +832,24 @@ def test_crud_service():
         # Test update - not found
         try:
             await service.update(999, {"name": "Nobody"})
-            assert False, "Should have raised NotFoundError"
+            raise AssertionError("Should have raised NotFoundError")
         except NotFoundError:
             pass
 
         # Test delete
         deleted = await service.delete(1)
-        assert deleted == True
+        assert deleted
 
         # Test delete - not found
         try:
             await service.delete(999)
-            assert False, "Should have raised NotFoundError"
+            raise AssertionError("Should have raised NotFoundError")
         except NotFoundError:
             pass
 
         # Test exists
-        assert await service.exists(2) == True
-        assert await service.exists(999) == False
+        assert await service.exists(2)
+        assert not await service.exists(999)
 
         # Test count
         count = await service.count()
@@ -894,7 +894,7 @@ def test_validated_service():
         # Test create with invalid data
         try:
             await service.create({"name": "", "email": "test@example.com"})
-            assert False, "Should have raised validation error"
+            raise AssertionError("Should have raised validation error")
         except Exception:
             pass  # Pydantic validation error expected
 

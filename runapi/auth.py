@@ -12,6 +12,7 @@ except ImportError:
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 
 from .config import get_config
 
@@ -40,7 +41,7 @@ class PasswordManager:
         return secrets.token_urlsafe(length)
 
 
-from jose import JWTError, jwt
+
 
 
 class JWTManager:

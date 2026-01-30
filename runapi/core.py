@@ -128,7 +128,7 @@ class RunApiApp:
 
     def _load_routes_recursive(self, routes_dir: Path, prefix: str = ""):
         """Recursively load routes from directory structure."""
-        router = APIRouter(prefix=prefix)
+
 
         for item in routes_dir.iterdir():
             if item.is_dir():
