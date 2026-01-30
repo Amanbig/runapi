@@ -117,6 +117,19 @@ if SQLALCHEMY_AVAILABLE:
 else:
     SQLAlchemyRepository = None  # type: ignore
 
+# Service
+from .service import (
+    BaseService,
+    CRUDService,
+    ValidatedService,
+    ServiceFactory,
+    validate_input,
+    require_exists,
+    log_operation,
+    create_service_dependency,
+    create_crud_service,
+)
+
 # Convenience imports
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
@@ -222,6 +235,17 @@ __all__ = [
     "RepositoryFactory",
     "create_repository",
     "SQLALCHEMY_AVAILABLE",
+
+    # Service
+    "BaseService",
+    "CRUDService",
+    "ValidatedService",
+    "ServiceFactory",
+    "validate_input",
+    "require_exists",
+    "log_operation",
+    "create_service_dependency",
+    "create_crud_service",
 
     # FastAPI re-exports
     "FastAPI",

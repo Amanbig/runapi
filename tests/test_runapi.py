@@ -802,6 +802,239 @@ async def post(request: Request):
     print("✅ Repository integration with routes test passed!")
 
 
+def test_crud_service():
+    """Test CRUDService basic operations"""
+    print("🧪 Testing CRUDService...")
+
+    import asyncio
+    from runapi import CRUDService, InMemoryRepository, NotFoundError
+
+    async def run_tests():
+        repo = InMemoryRepository()
+        service = CRUDService(repo, "User")
+
+        # Test create
+        user = await service.create({"name": "John", "email": "john@example.com"})
+        assert user["id"] == 1
+        assert user["name"] == "John"
+
+        # Test get
+        fetched = await service.get(1)
+        assert fetched["name"] == "John"
+
+        # Test get - not found
+        try:
+            await service.get(999)
+            assert False, "Should have raised NotFoundError"
+        except NotFoundError as e:
+            assert "999" in str(e)
+
+        # Test get_or_none
+        result = await service.get_or_none(999)
+        assert result is None
+
+        # Test get_all
+        await service.create({"name": "Jane", "email": "jane@example.com"})
+        all_users = await service.get_all()
+        assert len(all_users) == 2
+
+        # Test update
+        updated = await service.update(1, {"name": "Johnny"})
+        assert updated["name"] == "Johnny"
+
+        # Test update - not found
+        try:
+            await service.update(999, {"name": "Nobody"})
+            assert False, "Should have raised NotFoundError"
+        except NotFoundError:
+            pass
+
+        # Test delete
+        deleted = await service.delete(1)
+        assert deleted == True
+
+        # Test delete - not found
+        try:
+            await service.delete(999)
+            assert False, "Should have raised NotFoundError"
+        except NotFoundError:
+            pass
+
+        # Test exists
+        assert await service.exists(2) == True
+        assert await service.exists(999) == False
+
+        # Test count
+        count = await service.count()
+        assert count == 1
+
+        repo.clear()
+
+    asyncio.run(run_tests())
+    print("✅ CRUDService test passed!")
+
+
+def test_validated_service():
+    """Test ValidatedService with schema validation"""
+    print("🧪 Testing ValidatedService...")
+
+    import asyncio
+    from pydantic import BaseModel, Field
+    from typing import Optional
+    from runapi import ValidatedService, InMemoryRepository
+
+    class UserCreate(BaseModel):
+        name: str = Field(..., min_length=1)
+        email: str
+
+    class UserUpdate(BaseModel):
+        name: Optional[str] = None
+        email: Optional[str] = None
+
+    class UserService(ValidatedService):
+        create_schema = UserCreate
+        update_schema = UserUpdate
+
+    async def run_tests():
+        repo = InMemoryRepository()
+        service = UserService(repo, "User")
+
+        # Test create with validation
+        user = await service.create({"name": "Alice", "email": "alice@example.com"})
+        assert user["name"] == "Alice"
+
+        # Test create with invalid data
+        try:
+            await service.create({"name": "", "email": "test@example.com"})
+            assert False, "Should have raised validation error"
+        except Exception:
+            pass  # Pydantic validation error expected
+
+        # Test update with validation
+        updated = await service.update(user["id"], {"name": "Alicia"})
+        assert updated["name"] == "Alicia"
+
+        repo.clear()
+
+    asyncio.run(run_tests())
+    print("✅ ValidatedService test passed!")
+
+
+def test_service_factory():
+    """Test ServiceFactory registration and creation"""
+    print("🧪 Testing ServiceFactory...")
+
+    from runapi import ServiceFactory, CRUDService, InMemoryRepository
+
+    # Clear any existing registrations
+    ServiceFactory.clear()
+
+    # Create repository
+    repo = InMemoryRepository()
+
+    # Test register
+    ServiceFactory.register("users", CRUDService, repo, "User")
+
+    # Test list
+    services = ServiceFactory.list_services()
+    assert "users" in services
+
+    # Test get (creates and caches)
+    service1 = ServiceFactory.get("users")
+    service2 = ServiceFactory.get("users")
+    assert service1 is service2  # Same instance
+
+    # Test create (new instance)
+    service3 = ServiceFactory.create("users")
+    assert service3 is not service1  # Different instance
+
+    # Clean up
+    ServiceFactory.clear()
+
+    print("✅ ServiceFactory test passed!")
+
+
+def test_service_with_routes():
+    """Test using services in route handlers"""
+    print("🧪 Testing service integration with routes...")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Create routes directory
+        routes_path = temp_path / "routes"
+        routes_path.mkdir()
+        (routes_path / "__init__.py").touch()
+
+        api_path = routes_path / "api"
+        api_path.mkdir()
+        (api_path / "__init__.py").touch()
+
+        # Create route that uses service
+        products_route = '''
+from runapi import JSONResponse, Request, InMemoryRepository, CRUDService, NotFoundError
+from datetime import datetime
+
+# Setup service layer
+product_repo = InMemoryRepository()
+product_service = CRUDService(product_repo, "Product")
+
+def serialize(item):
+    """Convert datetime objects to ISO format strings."""
+    result = {}
+    for k, v in item.items():
+        if isinstance(v, datetime):
+            result[k] = v.isoformat()
+        else:
+            result[k] = v
+    return result
+
+async def get():
+    """Get all products."""
+    products = await product_service.get_all()
+    return JSONResponse([serialize(p) for p in products])
+
+async def post(request: Request):
+    """Create a new product."""
+    body = await request.json()
+    product = await product_service.create(body)
+    return JSONResponse(serialize(product), status_code=201)
+'''
+        (api_path / "products.py").write_text(products_route, encoding='utf-8')
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+
+            from runapi import create_runapi_app
+            app = create_runapi_app()
+            fastapi_app = app.get_app()
+
+            with TestClient(fastapi_app) as client:
+                # Initially empty
+                response = client.get("/api/products")
+                assert response.status_code == 200
+                assert response.json() == []
+
+                # Create product via service
+                response = client.post("/api/products", json={"name": "Widget", "price": 19.99})
+                assert response.status_code == 201
+                data = response.json()
+                assert data["id"] == 1
+                assert data["name"] == "Widget"
+
+                # Verify created
+                response = client.get("/api/products")
+                assert response.status_code == 200
+                products = response.json()
+                assert len(products) == 1
+
+        finally:
+            os.chdir(old_cwd)
+
+    print("✅ Service integration with routes test passed!")
+
+
 def run_all_tests():
     """Run all tests"""
     print("🚀 Starting RunApi Framework Tests\n")
@@ -823,6 +1056,10 @@ def run_all_tests():
         test_typed_repository,
         test_repository_factory,
         test_repository_with_routes,
+        test_crud_service,
+        test_validated_service,
+        test_service_factory,
+        test_service_with_routes,
     ]
     
     passed = 0
