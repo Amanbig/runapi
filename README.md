@@ -6,13 +6,51 @@
 
 A Next.js-inspired file-based routing framework built on FastAPI for Python backend development. runapi makes building robust APIs as intuitive as creating files and folders.
 
-## Why Runapi?
+## Why runapi?
 
-- 🚀 **Developer Experience**: Just like Next.js for React, runapi makes backend development intuitive
-- ⚡ **Performance**: Built on FastAPI, one of the fastest Python frameworks
-- 🛡️ **Production Ready**: Security, middleware, and error handling built-in
-- 🎯 **Type Safe**: Full typing support with automatic validation
-- 📁 **Intuitive**: File-based routing means your folder structure IS your API
+- **Enhanced Developer Experience**: Inspired by Next.js, runapi provides an intuitive environment for backend development.
+- **High Performance**: Built upon FastAPI, leveraging one of the most efficient Python web frameworks available.
+- **Production-Ready Core**: Includes integrated security, middleware, and standardized error handling.
+- **Strict Type Safety**: Comprehensive typing support with automated Pydantic validation.
+- **Intuitive Routing**: Implements file-based routing where the directory structure defines the API surface.
+
+## Comparative Analysis: FastAPI vs. runapi
+
+runapi is an extension of the FastAPI framework, introducing standardized architectural patterns and conventions to streamline the development lifecycle.
+
+| Feature | FastAPI | runapi |
+| :--- | :--- | :--- |
+| **Routing Mechanism** | Explicit registration via decorators | **Automated file-based routing** |
+| **Architectural Pattern** | Unopinionated / Custom | **Opinionated (Service-Repository)** |
+| **Initialization** | Manual configuration | **Automated discovery** and CLI-driven generation |
+| **Boilerplate Requirements** | Higher in enterprise-scale applications | **Significantly reduced** through convention |
+| **Abstraction Level** | Low-level / Direct access | High-level with underlying FastAPI access |
+| **Primary Use Case** | Bespoke or highly specialized architectures | **Rapid application development** and team consistency |
+
+### Architectural Trade-offs: Choosing runapi over Vanilla FastAPI
+
+Adopting runapi instead of standard FastAPI involves a strategic exchange of granular control for architectural standardization and development speed.
+
+| Feature | The runapi Advantage | The FastAPI Trade-off |
+| :--- | :--- | :--- |
+| **Development Speed vs. Granular Control** | **Accelerated Time-to-Market**: Automates route discovery and boilerplate generation, allowing developers to focus on business logic immediately. | **Reduced Configuration Control**: Developers relinquish explicit control over how and where individual routes are instantiated and registered within the application lifecycle. |
+| **Standardization vs. Flexibility** | **Enforced Best Practices**: Implements a consistent Service-Repository pattern that ensures codebase maintainability and simplifies onboarding in team environments. | **Constrained Architectural Freedom**: The framework requires strict adherence to its directory structure (`routes/`, `services/`, etc.), which may conflict with highly customized or legacy architectural requirements. |
+| **Abstraction vs. Transparency** | **High-Level Productivity**: Hides complex FastAPI and Pydantic configurations behind simplified interfaces (e.g., `CRUDService`, `BaseSchema`). | **Increased Debugging Complexity**: The additional abstraction layer can obscure the underlying FastAPI behavior, potentially complicating the diagnostic process for edge-case bugs or performance tuning. |
+| **Ecosystem Integration** | **Seamless Defaults**: Provides pre-configured, production-ready middleware (CORS, JWT, Rate Limiting) that follows industry standards. | **Compatibility Considerations**: While built on FastAPI, some highly specialized third-party FastAPI plugins may require manual adaptation to integrate with runapi's automated lifecycle. |
+
+### Strategic Implementation Criteria
+
+#### Criteria for Selecting runapi
+- Requirement for accelerated development cycles with minimal configuration overhead.
+- Preference for **file-based routing** over manual route registration.
+- Necessity for a **standardized architectural framework** (Services, Repositories, Schemas).
+- Objective to minimize repetitive code for standard operations such as Authentication and CRUD.
+
+#### Criteria for Selecting Plain FastAPI
+- Requirement for absolute control over every aspect of the system architecture.
+- Development of highly specialized or non-standard systems.
+- Preference for explicit route registration and manual configuration over system conventions.
+
 
 ## Features
 
