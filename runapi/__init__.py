@@ -40,6 +40,13 @@ from .auth import (
 )
 
 # Configuration
+from .backends import (
+    MemoryRateLimitBackend,
+    RateLimitBackend,
+    RedisRateLimitBackend,
+    RedisTokenBlacklist,
+    TokenBlacklist,
+)
 from .config import RunApiConfig, get_config, load_config
 from .core import RunApiApp, create_app, create_runapi_app
 
@@ -47,6 +54,7 @@ from .core import RunApiApp, create_app, create_runapi_app
 from .errors import (
     AuthenticationError,
     AuthorizationError,
+    ConfigurationError,
     ConflictError,
     DatabaseError,
     ErrorHandler,
@@ -54,6 +62,7 @@ from .errors import (
     ExternalServiceError,
     NotFoundError,
     RateLimitError,
+    RouteLoadError,
     RunApiException,
     ServerError,
     ValidationError,
@@ -76,6 +85,7 @@ from .errors import (
 )
 
 # Middleware
+from .logging import get_request_id
 from .middleware import (
     AuthMiddleware,
     CompressionMiddleware,
@@ -157,6 +167,8 @@ __all__ = [
     "load_config",
     # Error handling
     "RunApiException",
+    "ConfigurationError",
+    "RouteLoadError",
     "ValidationError",
     "AuthenticationError",
     "AuthorizationError",
@@ -195,6 +207,12 @@ __all__ = [
     "create_access_token",
     "create_refresh_token",
     "verify_token",
+    "RateLimitBackend",
+    "MemoryRateLimitBackend",
+    "RedisRateLimitBackend",
+    "TokenBlacklist",
+    "RedisTokenBlacklist",
+    "get_request_id",
     "revoke_token",
     "rotate_refresh_token",
     "get_current_user",

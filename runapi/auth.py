@@ -8,12 +8,13 @@ from typing import Any, Dict, Optional
 try:
     import bcrypt
 except ImportError:  # pragma: no cover
-    bcrypt = None
+    bcrypt = None  # type: ignore[assignment]
 
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from .backends import RedisTokenBlacklist, TokenBlacklist, uses_redis
 from .config import get_config
 
 
@@ -23,7 +24,7 @@ class PasswordManager:
     # bcrypt only considers the first 72 bytes of a password
     _MAX_BYTES = 72
 
-    def __init__(self, schemes: list = None, rounds: int = 12):
+    def __init__(self, schemes: Optional[list] = None, rounds: int = 12):
         if bcrypt is None:
             raise ImportError(
                 "bcrypt is required for password hashing. Install with: pip install bcrypt"
@@ -55,39 +56,17 @@ class PasswordManager:
 _RESERVED_CLAIMS = ("exp", "iat", "type", "jti")
 
 
-class TokenBlacklist:
-    """In-memory store of revoked token ids (``jti``).
-
-    Subclass and override ``add``/``is_revoked`` to back it with Redis or a database
-    when running multiple workers.
-    """
-
-    def __init__(self):
-        self._revoked: Dict[str, float] = {}
-
-    def add(self, jti: str, expires_at: float) -> None:
-        self._purge()
-        self._revoked[jti] = expires_at
-
-    def is_revoked(self, jti: str) -> bool:
-        return jti in self._revoked
-
-    def _purge(self) -> None:
-        now = time.time()
-        for key in [k for k, exp in self._revoked.items() if exp < now]:
-            del self._revoked[key]
-
-
 class JWTManager:
     """JWT token management utilities using PyJWT."""
 
-    def __init__(self, secret_key: str = None, algorithm: str = "HS256"):
+    def __init__(self, secret_key: Optional[str] = None, algorithm: str = "HS256"):
         self.config = get_config()
         self.secret_key = secret_key or self.config.secret_key
         self.algorithm = algorithm or self.config.jwt_algorithm
         self.access_token_expire = self.config.jwt_expiry
         self.refresh_token_expire = self.config.jwt_refresh_expiry
-        self.blacklist = TokenBlacklist()
+        redis_url = uses_redis(self.config)
+        self.blacklist = RedisTokenBlacklist.from_url(redis_url) if redis_url else TokenBlacklist()
 
         if self.secret_key == "dev-secret-key-change-in-production":
             raise ValueError("Change the SECRET_KEY in production!")
@@ -205,7 +184,7 @@ class APIKeyManager:
 class AuthDependencies:
     """FastAPI dependency classes for authentication."""
 
-    def __init__(self, jwt_manager: JWTManager = None):
+    def __init__(self, jwt_manager: Optional[JWTManager] = None):
         self.jwt_manager = jwt_manager or JWTManager()
         self.bearer_scheme = HTTPBearer()
 
@@ -380,7 +359,9 @@ def generate_password(length: int = 12) -> str:
 class TokenResponse:
     """Standard token response format."""
 
-    def __init__(self, access_token: str, refresh_token: str = None, token_type: str = "bearer"):
+    def __init__(
+        self, access_token: str, refresh_token: Optional[str] = None, token_type: str = "bearer"
+    ):
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.token_type = token_type

@@ -1,15 +1,19 @@
 # runapi/core.py
 import importlib.util
+import inspect
 import logging
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import Any, Callable, List, Optional, Type
 
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from .backends import RedisRateLimitBackend, uses_redis
 from .config import RunApiConfig, get_config
-from .errors import setup_error_handlers
+from .errors import ConfigurationError, RouteLoadError, setup_error_handlers
+from .logging import RequestIDMiddleware, configure_logging
 from .middleware import (
     AuthMiddleware,
     CompressionMiddleware,
@@ -26,11 +30,19 @@ class RunApiApp:
 
     def __init__(self, config: Optional[RunApiConfig] = None, **fastapi_kwargs):
         self.config = config or get_config()
-        self.app = self._create_fastapi_app(**fastapi_kwargs)
         self.middleware_stack: List[Type[RunApiMiddleware]] = []
+        self.route_errors: List[str] = []
+        self._startup_hooks: List[Callable[[], Any]] = []
+        self._shutdown_hooks: List[Callable[[], Any]] = []
+        self._readiness_checks: dict = {}
+        self._user_lifespan = fastapi_kwargs.pop("lifespan", None)
+        self.app = self._create_fastapi_app(**fastapi_kwargs)
 
         # Setup logging
         self._setup_logging()
+
+        # Refuse to start with an unsafe production configuration
+        self._validate_config()
 
         # Setup default middleware
         self._setup_default_middleware()
@@ -47,6 +59,9 @@ class RunApiApp:
         # Setup static files
         self._setup_static_files()
 
+        # Health and readiness endpoints
+        self._setup_health_endpoints()
+
     def _create_fastapi_app(self, **kwargs) -> FastAPI:
         """Create FastAPI application with configuration."""
         # Merge config with kwargs
@@ -58,12 +73,99 @@ class RunApiApp:
         }
         app_kwargs.update(kwargs)
 
+        app_kwargs["lifespan"] = self._lifespan
         return FastAPI(**app_kwargs)
 
+    @asynccontextmanager
+    async def _lifespan(self, app: FastAPI):
+        """Run startup/shutdown hooks (and a user-supplied lifespan, if any)."""
+        for hook in self._startup_hooks:
+            await self._call_hook(hook)
+        try:
+            if self._user_lifespan is not None:
+                async with self._user_lifespan(app):
+                    yield
+            else:
+                yield
+        finally:
+            for hook in reversed(self._shutdown_hooks):
+                try:
+                    await self._call_hook(hook)
+                except Exception:
+                    self.logger.exception("Error in shutdown hook")
+
+    @staticmethod
+    async def _call_hook(hook: Callable[[], Any]):
+        result = hook()
+        if inspect.isawaitable(result):
+            await result
+
+    def on_startup(self, func: Callable[[], Any]) -> Callable[[], Any]:
+        """Register a startup hook (sync or async). Usable as a decorator."""
+        self._startup_hooks.append(func)
+        return func
+
+    def on_shutdown(self, func: Callable[[], Any]) -> Callable[[], Any]:
+        """Register a shutdown hook (sync or async). Runs in reverse order."""
+        self._shutdown_hooks.append(func)
+        return func
+
+    def add_readiness_check(self, name: str, check: Callable[[], Any]) -> None:
+        """Register a readiness check. It must return truthy (or not raise) when healthy."""
+        self._readiness_checks[name] = check
+
+    def _validate_config(self):
+        result = self.config.validate_settings()
+        for warning in result["warnings"]:
+            self.logger.warning(f"Config warning: {warning}")
+        if not result["errors"]:
+            return
+        if self.config.is_production():
+            raise ConfigurationError(
+                "Unsafe production configuration: " + "; ".join(result["errors"])
+            )
+        for error in result["errors"]:
+            self.logger.warning(f"Config problem (fatal in production): {error}")
+
+    def _setup_health_endpoints(self):
+        if not self.config.health_enabled:
+            return
+        existing = {getattr(r, "path", None) for r in self.app.routes}
+
+        if "/health" not in existing:
+
+            @self.app.get("/health", include_in_schema=False)
+            async def health():
+                return {"status": "ok"}
+
+        if "/ready" not in existing:
+
+            @self.app.get("/ready", include_in_schema=False)
+            async def ready():
+                from fastapi.responses import JSONResponse
+
+                results = {}
+                for name, check in self._readiness_checks.items():
+                    try:
+                        outcome = check()
+                        if inspect.isawaitable(outcome):
+                            outcome = await outcome
+                        results[name] = outcome is not False
+                    except Exception:
+                        self.logger.exception(f"Readiness check '{name}' failed")
+                        results[name] = False
+                healthy = all(results.values())
+                return JSONResponse(
+                    {"status": "ready" if healthy else "unavailable", "checks": results},
+                    status_code=200 if healthy else 503,
+                )
+
     def _setup_logging(self):
-        """Setup logging configuration."""
-        logging.basicConfig(
-            level=getattr(logging, self.config.log_level.upper()), format=self.config.log_format
+        """Setup logging configuration (JSON in production by default)."""
+        configure_logging(
+            self.config.log_level,
+            json_logs=bool(self.config.log_json),
+            text_format=self.config.log_format,
         )
         self.logger = logging.getLogger("runapi")
 
@@ -73,20 +175,31 @@ class RunApiApp:
         if self.config.cors_origins:
             from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
 
+            credentials = self.config.cors_credentials
+            if credentials and "*" in self.config.cors_origins:
+                self.logger.warning(
+                    "CORS_CREDENTIALS ignored: it cannot be used with CORS_ORIGINS='*'"
+                )
+                credentials = False
+
             self.app.add_middleware(
                 FastAPICORSMiddleware,
                 allow_origins=self.config.cors_origins,
-                allow_credentials=self.config.cors_credentials,
+                allow_credentials=credentials,
                 allow_methods=self.config.cors_methods,
                 allow_headers=self.config.cors_headers,
             )
 
         # Rate limiting middleware
         if self.config.rate_limit_enabled:
+            redis_url = uses_redis(self.config)
+            backend = RedisRateLimitBackend.from_url(redis_url) if redis_url else None
             self.app.add_middleware(
                 RateLimitMiddleware,
                 calls=self.config.rate_limit_calls,
                 period=self.config.rate_limit_period,
+                backend=backend,
+                trust_proxy_headers=self.config.trust_proxy_headers,
             )
 
         # Security headers middleware
@@ -98,6 +211,9 @@ class RunApiApp:
 
         # Compression middleware
         self.app.add_middleware(CompressionMiddleware)
+
+        # Request ID middleware (added last so it is outermost and covers everything)
+        self.app.add_middleware(RequestIDMiddleware)
 
     def _setup_error_handlers(self):
         """Setup error handlers for the application."""
@@ -178,7 +294,9 @@ class RunApiApp:
                 full = f"{prefix}{file_path}" if file_path != "/" else (prefix or "/")
                 found.append((item, prefix, full))
 
-    def _load_route_file(self, route_file: Path, prefix: str = "", routes_root: Path = None):
+    def _load_route_file(
+        self, route_file: Path, prefix: str = "", routes_root: Optional[Path] = None
+    ):
         """Load a single route file."""
         try:
             route_name = route_file.stem
@@ -201,6 +319,9 @@ class RunApiApp:
             # Extract router or create one
             route_router = getattr(module, "router", APIRouter())
             path = self._get_route_path(route_name)
+            if path == "/" and prefix:
+                # routes/users/index.py -> "/users" (not "/users/", which would redirect)
+                path = ""
 
             # Map HTTP methods to functions
             for method in ["get", "post", "put", "delete", "patch", "head", "options", "trace"]:
@@ -218,7 +339,11 @@ class RunApiApp:
             self.logger.debug(f"Loaded route: {route_file} with prefix: {final_prefix}")
 
         except Exception as e:
-            self.logger.error(f"Failed to load route {route_file}: {e}")
+            message = f"Failed to load route {route_file}: {e}"
+            self.route_errors.append(message)
+            if self.config.strict_routes:
+                raise RouteLoadError(message) from e
+            self.logger.exception(message)
 
     def _get_route_path(self, route_name: str) -> str:
         """Convert route name to FastAPI path."""
@@ -229,12 +354,14 @@ class RunApiApp:
 
     def add_middleware(self, middleware_class: Type[RunApiMiddleware], **kwargs):
         """Add custom middleware to the application."""
-        self.app.add_middleware(middleware_class, **kwargs)
+        self.app.add_middleware(middleware_class, **kwargs)  # type: ignore[arg-type]
         self.middleware_stack.append(middleware_class)
         self.logger.debug(f"Added middleware: {middleware_class.__name__}")
 
     def add_auth_middleware(
-        self, protected_paths: List[str] = None, excluded_paths: List[str] = None
+        self,
+        protected_paths: Optional[List[str]] = None,
+        excluded_paths: Optional[List[str]] = None,
     ):
         """Add JWT authentication middleware."""
         if (
@@ -262,7 +389,7 @@ class RunApiApp:
         """List all registered schema names."""
         return list(SchemaRegistry.get_all().keys())
 
-    def run(self, host: str = None, port: int = None, **uvicorn_kwargs):
+    def run(self, host: Optional[str] = None, port: Optional[int] = None, **uvicorn_kwargs):
         """Run the application with uvicorn."""
         import uvicorn
 

@@ -187,7 +187,9 @@ class ErrorResponse(BaseSchema):
 # =============================================================================
 
 
-def load_schemas(schemas_path: Path = None, logger: logging.Logger = None) -> Dict[str, Any]:
+def load_schemas(
+    schemas_path: Optional[Path] = None, logger: Optional[logging.Logger] = None
+) -> Dict[str, Any]:
     """
     Load schemas from the schemas/ directory.
 
@@ -211,7 +213,7 @@ def load_schemas(schemas_path: Path = None, logger: logging.Logger = None) -> Di
         logger.debug(f"Schemas directory not found: {schemas_path}")
         return {}
 
-    loaded_modules = {}
+    loaded_modules: dict = {}
     _load_schemas_recursive(schemas_path, "", loaded_modules, logger)
 
     SchemaRegistry._modules = loaded_modules
@@ -329,7 +331,7 @@ def create_response_model(
             name=(str, None)
         )
     """
-    bases = [BaseSchema]
+    bases: list = [BaseSchema]
 
     if include_id:
         bases.insert(0, IDMixin)
@@ -366,7 +368,7 @@ def create_update_model(name: str, **fields: Any) -> Type[BaseSchema]:
     """
     # Make all fields optional with None defaults
     annotations = {}
-    field_defaults = {}
+    field_defaults: dict = {}
 
     for field_name, field_type in fields.items():
         if isinstance(field_type, tuple):

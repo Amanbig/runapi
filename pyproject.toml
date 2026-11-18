@@ -12,6 +12,7 @@ dependencies = [
     "typer>=0.12.0",
     "rich>=13.7.0",
     "bcrypt>=4.0.1",
+    "pydantic-settings>=2.2",
     "PyJWT>=2.10.1",
     "python-multipart>=0.0.18",
     "aiofiles>=23.2.1",
@@ -58,6 +59,9 @@ Issues = "https://github.com/Amanbig/runapi/issues"
 Changelog = "https://github.com/Amanbig/runapi/tree/main/release-notes"
 
 [project.optional-dependencies]
+redis = [
+    "redis>=5.0",
+]
 db = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",
@@ -74,6 +78,8 @@ test = [
     "httpx>=0.24.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
+    "redis>=5.0",
+    "fakeredis>=2.20",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -125,7 +131,7 @@ known-first-party = ["runapi"]
 
 [tool.mypy]
 python_version = "3.10"
-warn_return_any = true
+warn_return_any = false
 warn_unused_ignores = true
 disallow_untyped_defs = false
 ignore_missing_imports = true

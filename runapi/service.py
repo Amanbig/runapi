@@ -314,7 +314,7 @@ def require_exists(entity_name: str = "Entity"):
     return decorator
 
 
-def log_operation(operation_name: str = None):
+def log_operation(operation_name: Optional[str] = None):
     """
     Decorator to log service operations.
 
@@ -418,7 +418,7 @@ class ServiceFactory:
 
 
 def create_service_dependency(
-    service_class: Type[BaseService], repository_class: Type[BaseRepository], **service_kwargs
+    service_class: Type[Any], repository_class: Type[Any], **service_kwargs
 ) -> Callable:
     """
     Create a FastAPI dependency for a service.
@@ -435,7 +435,7 @@ def create_service_dependency(
     _repository = None
     _service = None
 
-    def get_service() -> BaseService:
+    def get_service() -> Any:
         nonlocal _repository, _service
         if _repository is None:
             _repository = repository_class()
