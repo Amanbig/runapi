@@ -138,6 +138,7 @@ Routes are created by adding Python files in the `routes/` directory:
 ```python
 from runapi import JSONResponse
 
+
 async def get():
     return JSONResponse({"message": "Hello runapi!"})
 ```
@@ -146,8 +147,10 @@ async def get():
 ```python
 from runapi import JSONResponse, Request
 
+
 async def get():
     return JSONResponse({"users": []})
+
 
 async def post(request: Request):
     body = await request.json()
@@ -158,14 +161,17 @@ async def post(request: Request):
 ```python
 from runapi import JSONResponse, Request
 
+
 async def get(request: Request):
     user_id = request.path_params["id"]
     return JSONResponse({"user_id": user_id})
+
 
 async def put(request: Request):
     user_id = request.path_params["id"]
     body = await request.json()
     return JSONResponse({"user_id": user_id, "updated": body})
+
 
 async def delete(request: Request):
     user_id = request.path_params["id"]
@@ -238,19 +244,23 @@ from runapi import BaseSchema, IDMixin, TimestampMixin
 from pydantic import Field
 from typing import Optional
 
+
 # Base schema with ORM support and validation
 class UserBase(BaseSchema):
     email: str = Field(..., description="User email")
     name: str = Field(..., min_length=1, max_length=100)
 
+
 # Schema for creating (no ID, no timestamps)
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+
 
 # Schema for updating (all fields optional)
 class UserUpdate(BaseSchema):
     email: Optional[str] = None
     name: Optional[str] = None
+
 
 # Schema for responses (includes ID and timestamps)
 class UserResponse(UserBase, IDMixin, TimestampMixin):
@@ -261,28 +271,23 @@ class UserResponse(UserBase, IDMixin, TimestampMixin):
 
 ```python
 from runapi import (
-    BaseSchema,          # Base with ORM mode, validation
-    IDMixin,             # Adds 'id: int' field
-    TimestampMixin,      # Adds 'created_at', 'updated_at'
-    MessageResponse,     # Simple {"message": str, "success": bool}
-    PaginatedResponse,   # Generic paginated list wrapper
-    PaginationParams,    # Query params with offset/limit
+    BaseSchema,  # Base with ORM mode, validation
+    IDMixin,  # Adds 'id: int' field
+    TimestampMixin,  # Adds 'created_at', 'updated_at'
+    MessageResponse,  # Simple {"message": str, "success": bool}
+    PaginatedResponse,  # Generic paginated list wrapper
+    PaginationParams,  # Query params with offset/limit
 )
 
 # Pagination example
 from runapi import PaginatedResponse, PaginationParams
 
+
 async def get_users(params: PaginationParams):
-    users = await user_service.get_all(
-        skip=params.offset,
-        limit=params.limit
-    )
+    users = await user_service.get_all(skip=params.offset, limit=params.limit)
     total = await user_service.count()
     return PaginatedResponse.create(
-        items=users,
-        total=total,
-        page=params.page,
-        page_size=params.page_size
+        items=users, total=total, page=params.page, page_size=params.page_size
     )
 ```
 
@@ -292,6 +297,7 @@ async def get_users(params: PaginationParams):
 # routes/api/users.py
 from runapi import JSONResponse, Request
 from schemas.user import UserCreate, UserResponse
+
 
 async def post(request: Request):
     body = await request.json()
@@ -315,6 +321,7 @@ runapi generate repository user
 ```python
 from runapi import InMemoryRepository
 
+
 class UserRepository(InMemoryRepository):
     """In-memory storage - great for development/testing."""
 
@@ -323,6 +330,7 @@ class UserRepository(InMemoryRepository):
 
     async def find_active_users(self):
         return await self.get_many_by(is_active=True)
+
 
 # Usage
 repo = UserRepository()
@@ -338,12 +346,14 @@ await repo.delete(1)
 from runapi import TypedInMemoryRepository
 from schemas.user import UserResponse
 
+
 class UserRepository(TypedInMemoryRepository[UserResponse]):
     def __init__(self):
         super().__init__(UserResponse)
 
     async def find_by_email(self, email: str):
         return await self.get_by(email=email)
+
 
 # Returns UserResponse instances, not dicts
 user = await repo.create({"name": "John", "email": "john@example.com"})
@@ -357,6 +367,7 @@ from runapi import SQLAlchemyRepository, SQLALCHEMY_AVAILABLE
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if SQLALCHEMY_AVAILABLE:
+
     class UserRepository(SQLAlchemyRepository[UserModel, int]):
         def __init__(self, session: AsyncSession):
             super().__init__(session, UserModel)
@@ -395,6 +406,7 @@ runapi generate service user
 ```python
 from runapi import CRUDService, InMemoryRepository
 
+
 class UserService(CRUDService):
     """Inherits all CRUD operations with error handling."""
 
@@ -407,6 +419,7 @@ class UserService(CRUDService):
 
     async def deactivate(self, user_id: int):
         return await self.update(user_id, {"is_active": False})
+
 
 # Usage
 user_repo = UserRepository()
@@ -426,16 +439,16 @@ await user_service.delete(1)  # Raises NotFoundError if missing
 from runapi import ValidatedService
 from schemas.user import UserCreate, UserUpdate
 
+
 class UserService(ValidatedService):
     create_schema = UserCreate  # Auto-validates on create
     update_schema = UserUpdate  # Auto-validates on update
 
+
 # Input is validated against schemas automatically
-user = await user_service.create({
-    "name": "John",
-    "email": "john@example.com",
-    "password": "secure123"
-})
+user = await user_service.create(
+    {"name": "John", "email": "john@example.com", "password": "secure123"}
+)
 ```
 
 ### Complete Example: Routes + Service + Repository
@@ -444,18 +457,22 @@ user = await user_service.create({
 # repositories/user.py
 from runapi import InMemoryRepository
 
+
 class UserRepository(InMemoryRepository):
     async def find_by_email(self, email: str):
         return await self.get_by(email=email)
 
+
 # services/user.py
 from runapi import CRUDService, ValidationError
+
 
 class UserService(CRUDService):
     async def register(self, data: dict):
         if await self.repository.get_by(email=data["email"]):
             raise ValidationError("Email exists")
         return await self.create(data)
+
 
 # routes/api/users.py
 from runapi import JSONResponse, Request
@@ -465,9 +482,11 @@ from services.user import UserService
 user_repo = UserRepository()
 user_service = UserService(user_repo, "User")
 
+
 async def get():
     users = await user_service.get_all()
     return JSONResponse(users)
+
 
 async def post(request: Request):
     body = await request.json()
@@ -481,8 +500,8 @@ async def post(request: Request):
 from runapi import validate_input, require_exists, log_operation
 from schemas.user import UserCreate
 
-class UserService(CRUDService):
 
+class UserService(CRUDService):
     @validate_input(UserCreate)
     async def create(self, data: dict):
         return await self.repository.create(data)
@@ -565,8 +584,7 @@ app = create_runapi_app()
 
 # Protect specific routes
 app.add_auth_middleware(
-    protected_paths=["/api/protected"],
-    excluded_paths=["/api/auth/login", "/docs"]
+    protected_paths=["/api/protected"], excluded_paths=["/api/auth/login", "/docs"]
 )
 ```
 
@@ -576,17 +594,18 @@ app.add_auth_middleware(
 ```python
 from runapi import JSONResponse, Request, create_token_response, verify_password
 
+
 async def post(request: Request):
     body = await request.json()
     username = body.get("username")
     password = body.get("password")
-    
+
     # Verify credentials (implement your logic)
     if verify_credentials(username, password):
         user_data = {"sub": "user_id", "username": username}
         tokens = create_token_response(user_data)
         return JSONResponse(tokens.dict())
-    
+
     return JSONResponse({"error": "Invalid credentials"}, status_code=401)
 ```
 
@@ -596,11 +615,9 @@ async def post(request: Request):
 ```python
 from runapi import JSONResponse, get_current_user, Depends
 
+
 async def get(current_user: dict = Depends(get_current_user())):
-    return JSONResponse({
-        "message": "This is protected!",
-        "user": current_user
-    })
+    return JSONResponse({"message": "This is protected!", "user": current_user})
 ```
 
 ## Middleware
@@ -614,7 +631,7 @@ app = create_runapi_app()
 
 # Built-in middleware (automatically configured via .env)
 # - CORS
-# - Rate limiting  
+# - Rate limiting
 # - Security headers
 # - Request logging
 # - Compression
@@ -622,12 +639,14 @@ app = create_runapi_app()
 # Add custom middleware
 from runapi import RunApiMiddleware
 
+
 class CustomMiddleware(RunApiMiddleware):
     async def dispatch(self, request, call_next):
         # Pre-processing
         response = await call_next(request)
         # Post-processing
         return response
+
 
 app.add_middleware(CustomMiddleware)
 ```
@@ -639,14 +658,15 @@ runapi provides comprehensive error handling:
 ```python
 from runapi import ValidationError, NotFoundError, raise_not_found
 
+
 async def get_user(user_id: str):
     if not user_id:
         raise ValidationError("User ID is required")
-    
+
     user = find_user(user_id)
     if not user:
         raise_not_found("User not found")
-    
+
     return user
 ```
 
@@ -706,19 +726,17 @@ from runapi import create_runapi_app, get_config
 config = get_config()
 
 # Create app with custom settings
-app = create_runapi_app(
-    title="My API",
-    description="Built with runapi",
-    version="1.0.0"
-)
+app = create_runapi_app(title="My API", description="Built with runapi", version="1.0.0")
 
 # Add custom middleware
 app.add_auth_middleware()
+
 
 # Add custom startup/shutdown events
 @app.get_app().on_event("startup")
 async def startup():
     print("Starting up!")
+
 
 # Get underlying FastAPI app
 fastapi_app = app.get_app()
@@ -734,6 +752,7 @@ from runapi import get_config
 config = get_config()
 engine = create_engine(config.database_url)
 
+
 # Use in routes
 async def get_users():
     # Your database logic here
@@ -746,9 +765,11 @@ async def get_users():
 from fastapi import BackgroundTasks
 from runapi import JSONResponse
 
+
 async def send_email(email: str):
     # Send email logic
     pass
+
 
 async def post(request: Request, background_tasks: BackgroundTasks):
     body = await request.json()
@@ -770,6 +791,7 @@ runapi supports dynamic route parameters:
 from fastapi import UploadFile, File
 from runapi import JSONResponse
 
+
 async def post(file: UploadFile = File(...)):
     contents = await file.read()
     # Process file
@@ -783,6 +805,7 @@ from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app.get_app())
+
 
 def test_read_main():
     response = client.get("/")
@@ -825,6 +848,7 @@ from fastapi import WebSocket
 from runapi import get_app
 
 app = get_app()
+
 
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
@@ -956,19 +980,20 @@ async def patch():      # PATCH request
 ```python
 from runapi import Request, JSONResponse
 
+
 async def post(request: Request):
     # Get JSON body
     body = await request.json()
-    
+
     # Get path parameters
     user_id = request.path_params.get("id")
-    
+
     # Get query parameters
     limit = request.query_params.get("limit", 10)
-    
+
     # Get headers
     auth_header = request.headers.get("authorization")
-    
+
     return JSONResponse({"status": "success"})
 ```
 
