@@ -1,7 +1,7 @@
 # Runapi 🚀
 
 [![PyPI version](https://badge.fury.io/py/runapi.svg)](https://badge.fury.io/py/runapi)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Next.js-inspired file-based routing framework built on FastAPI for Python backend development. runapi makes building robust APIs as intuitive as creating files and folders.
@@ -75,7 +75,7 @@ pip install runapi
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - FastAPI
 - Uvicorn (for development server)
 
