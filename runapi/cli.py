@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 import uvicorn
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -950,19 +951,14 @@ def routes():
         if route_file.name == "__init__.py":
             continue
 
-        # Generate URL path
+        # Generate URL path (same rules as the router: groups, [id], [...slug])
+        from .core import RunApiApp
+
         relative_path = route_file.relative_to(routes_path)
-        url_path = "/" + str(relative_path).replace("\\", "/").replace(".py", "")
-
-        if url_path.endswith("/index"):
-            url_path = url_path[:-6] or "/"
-
-        # Check for dynamic routes
-        if "[" in url_path and "]" in url_path:
-            # Convert [id] to {id}
-            import re
-
-            url_path = re.sub(r"\[([^\]]+)\]", r"{\1}", url_path)
+        parts = [RunApiApp._segment_to_path(p) for p in relative_path.with_suffix("").parts]
+        if parts and parts[-1] == "index":
+            parts = parts[:-1]
+        url_path = "/" + "/".join(p for p in parts if p)
 
         # Read file to detect HTTP methods
         # Read file to detect HTTP methods
@@ -985,11 +981,13 @@ def routes():
                             "options",
                         ]:
                             methods.append(node.name.upper())
+                        elif node.name == "websocket":
+                            methods.append("WS")
 
                 # Deduplicate and sort
                 methods = sorted(set(methods))
                 methods_str = ", ".join(methods) if methods else "No methods found"
-                table.add_row(methods_str, url_path, str(relative_path))
+                table.add_row(methods_str, escape(url_path), escape(str(relative_path)))
             except SyntaxError:
                 table.add_row("Error", url_path, "Syntax Error in file")
 
@@ -1085,7 +1083,7 @@ def doctor():
             problems += 1
             console.print(f"❌ {label}" + (f" - [yellow]{hint}[/yellow]" if hint else ""))
 
-    check(sys.version_info >= (3, 9), f"Python {sys.version.split()[0]}", "requires Python 3.9+")
+    check(sys.version_info >= (3, 10), f"Python {sys.version.split()[0]}", "requires Python 3.10+")
     check(True, f"runapi {__version__}")
     check(Path("main.py").exists(), "main.py found", "run from your project root")
     check(Path("routes").is_dir(), "routes/ directory found", "create a routes/ directory")

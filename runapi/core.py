@@ -1,6 +1,7 @@
 # runapi/core.py
 import importlib.util
 import logging
+import re
 from pathlib import Path
 from typing import List, Optional, Type
 
@@ -126,29 +127,68 @@ class RunApiApp:
         if routes_path.exists():
             self._load_routes_recursive(routes_path)
 
-    def _load_routes_recursive(self, routes_dir: Path, prefix: str = ""):
-        """Recursively load routes from directory structure."""
+    @staticmethod
+    def _segment_to_path(segment: str) -> str:
+        """Convert a folder/file name segment to a URL path segment.
 
-        for item in routes_dir.iterdir():
+        - ``(group)``   -> "" (route groups organise files without affecting the URL)
+        - ``[...slug]`` -> ``{slug:path}`` (catch-all)
+        - ``[id]``      -> ``{id}`` (dynamic)
+        """
+        if segment.startswith("(") and segment.endswith(")"):
+            return ""
+        if segment.startswith("[...") and segment.endswith("]"):
+            return f"{{{segment[4:-1]}:path}}"
+        if segment.startswith("[") and segment.endswith("]"):
+            return f"{{{segment[1:-1]}}}"
+        return segment
+
+    @staticmethod
+    def _specificity(url_path: str) -> list:
+        """Sort key so static routes register before dynamic, and catch-all last."""
+        ranks = []
+        for seg in url_path.strip("/").split("/"):
+            if ":path}" in seg:
+                ranks.append(2)
+            elif seg.startswith("{"):
+                ranks.append(1)
+            else:
+                ranks.append(0)
+        return ranks
+
+    def _load_routes_recursive(self, routes_dir: Path, prefix: str = ""):
+        """Discover route files, then register them most-specific first."""
+        found: List[tuple] = []
+        self._collect_route_files(routes_dir, routes_dir, prefix, found)
+        found.sort(key=lambda item: (self._specificity(item[2]), item[2]))
+        for route_file, url_prefix, _full in found:
+            self._load_route_file(route_file, url_prefix, routes_dir)
+
+    def _collect_route_files(self, root: Path, directory: Path, prefix: str, found: list):
+        for item in sorted(directory.iterdir()):
             if item.is_dir():
                 # Skip hidden directories and __pycache__
                 if item.name.startswith(".") or item.name.startswith("__"):
                     continue
-
-                # Recurse into subfolders (e.g., routes/api/users)
-                new_prefix = f"{prefix}/{item.name}"
-                self._load_routes_recursive(item, new_prefix)
+                part = self._segment_to_path(item.name)
+                new_prefix = f"{prefix}/{part}" if part else prefix
+                self._collect_route_files(root, item, new_prefix, found)
             elif item.suffix == ".py" and item.name != "__init__.py":
-                self._load_route_file(item, prefix)
+                file_path = self._get_route_path(item.stem)
+                full = f"{prefix}{file_path}" if file_path != "/" else (prefix or "/")
+                found.append((item, prefix, full))
 
-    def _load_route_file(self, route_file: Path, prefix: str = ""):
+    def _load_route_file(self, route_file: Path, prefix: str = "", routes_root: Path = None):
         """Load a single route file."""
         try:
             route_name = route_file.stem
-            prefix_part = prefix.replace("/", ".").strip(".")
-            module_name = (
-                f"routes.{prefix_part}.{route_name}" if prefix_part else f"routes.{route_name}"
-            )
+            root = routes_root or Path("routes")
+            try:
+                rel_parts = route_file.relative_to(root).with_suffix("").parts
+            except ValueError:
+                rel_parts = (route_name,)
+            safe = [re.sub(r"\W", "_", part) for part in rel_parts]
+            module_name = "routes." + ".".join(safe)
 
             spec = importlib.util.spec_from_file_location(module_name, route_file)
             if spec is None or spec.loader is None:
@@ -160,12 +200,16 @@ class RunApiApp:
 
             # Extract router or create one
             route_router = getattr(module, "router", APIRouter())
+            path = self._get_route_path(route_name)
 
             # Map HTTP methods to functions
             for method in ["get", "post", "put", "delete", "patch", "head", "options", "trace"]:
                 if hasattr(module, method):
-                    path = self._get_route_path(route_name)
                     getattr(route_router, method)(path)(getattr(module, method))
+
+            # WebSocket endpoint: define `async def websocket(ws: WebSocket)`
+            if callable(getattr(module, "websocket", None)):
+                route_router.add_api_websocket_route(path, module.websocket)
 
             # Include the router with proper prefix
             final_prefix = prefix if prefix else ""
@@ -180,16 +224,8 @@ class RunApiApp:
         """Convert route name to FastAPI path."""
         if route_name == "index":
             return "/"
-        elif route_name.startswith("[") and route_name.endswith("]"):
-            # Dynamic route: [id] -> {id}
-            param_name = route_name[1:-1]
-            return f"/{{{param_name}}}"
-        elif route_name.startswith("[...") and route_name.endswith("]"):
-            # Catch-all route: [...slug] -> {slug:path}
-            param_name = route_name[4:-1]
-            return f"/{{{param_name}:path}}"
-        else:
-            return f"/{route_name}"
+        segment = self._segment_to_path(route_name)
+        return f"/{segment}" if segment else "/"
 
     def add_middleware(self, middleware_class: Type[RunApiMiddleware], **kwargs):
         """Add custom middleware to the application."""

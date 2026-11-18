@@ -63,7 +63,7 @@ venv\Scripts\activate         # Windows
 pip install -r requirements.txt
 ```
 
-> **Python 3.9+ is required**
+> **Python 3.10+ is required**
 
 ---
 

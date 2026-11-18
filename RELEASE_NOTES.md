@@ -18,8 +18,15 @@
 - `runapi init` now generates a random `SECRET_KEY` in `.env`
 
 ### Python support
-- Dropped Python 3.8 (end of life); added Python 3.13. Minimum is now 3.9
+- Dropped Python 3.8 and 3.9 (end of life); added Python 3.13. Minimum is now 3.10
 - CI runs `pytest` with coverage; added `py.typed` and a pre-commit config
+
+### Routing
+- Fixed catch-all routes (`[...slug].py`), which were previously treated as a normal dynamic route
+- Dynamic folders (`routes/users/[id]/posts.py` -> `/users/{id}/posts`) and route groups (`routes/(admin)/...`, not part of the URL)
+- Routes now register static first, then dynamic, then catch-all, regardless of file order
+- WebSocket routes: define `async def websocket(ws)` in a route file
+- `runapi routes` uses the same path rules and shows `WS` endpoints
 
 ### Community
 - Added `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS` and GitHub Sponsors `FUNDING.yml`
