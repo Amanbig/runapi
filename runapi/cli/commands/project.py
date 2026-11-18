@@ -11,6 +11,43 @@ from .._app import app, console
 from .._templates import render
 
 _PACKAGES = ["routes", "schemas", "repositories", "services"]
+DB_CHOICES = ("none", "sqlite", "postgres")
+_DATABASE_URLS = {
+    "sqlite": "sqlite+aiosqlite:///./app.db",
+    "postgres": "postgresql+asyncpg://app:app@localhost:5432/app",
+}
+
+
+def _scaffold_database(project_path: Path, db: str) -> None:
+    """Add models, a session object, migrations and (for PostgreSQL) a compose file."""
+    from .db import write_migrations_scaffold
+
+    (project_path / "models").mkdir()
+    (project_path / "models" / "__init__.py").write_text(
+        render("db/models_init.py"), encoding="utf-8"
+    )
+    (project_path / "models" / "item.py").write_text(render("db/models_item.py"), encoding="utf-8")
+    (project_path / "db.py").write_text(render("db/db.py"), encoding="utf-8")
+    (project_path / "main.py").write_text(render("db/main.py"), encoding="utf-8")
+    (project_path / "routes" / "api" / "items.py").write_text(
+        render("db/route_items.py"), encoding="utf-8"
+    )
+    write_migrations_scaffold(project_path)
+
+    env_path = project_path / ".env"
+    env_path.write_text(
+        env_path.read_text(encoding="utf-8") + f"\n# Database\nDATABASE_URL={_DATABASE_URLS[db]}\n",
+        encoding="utf-8",
+    )
+    version = __version__.split("+")[0].split(".dev")[0]
+    (project_path / "requirements.txt").write_text(f"runapi[{db}]>={version}\n", encoding="utf-8")
+    if db == "postgres":
+        (project_path / "docker-compose.yml").write_text(
+            render("db/docker-compose.yml"), encoding="utf-8"
+        )
+    (project_path / ".env.example").write_text(
+        f"SECRET_KEY=change-me\nDATABASE_URL={_DATABASE_URLS[db]}\n", encoding="utf-8"
+    )
 
 
 @app.command()
@@ -18,9 +55,16 @@ def init(
     name: str = typer.Argument(..., help="Project name"),
     template: str = typer.Option("basic", "--template", "-t", help="Project template"),
     docker: bool = typer.Option(False, "--docker", help="Also generate a Dockerfile"),
+    db: str = typer.Option(
+        "none", "--db", help="Database to set up: none, sqlite or postgres", show_default=True
+    ),
 ):
     """Initialize a new RunApi project."""
     project_path = Path(name)
+
+    if db not in DB_CHOICES:
+        console.print(f"[red]❌ --db must be one of: {', '.join(DB_CHOICES)}")
+        raise typer.Exit(code=1)
 
     if project_path.exists():
         console.print(f"[red]❌ Directory '{name}' already exists")
@@ -51,6 +95,9 @@ def init(
         content = render(template_name, project_name=name, secret_key=secrets.token_hex(32))
         (project_path / target).write_text(content, encoding="utf-8")
 
+    if db != "none":
+        _scaffold_database(project_path, db)
+
     if docker:
         requirements = project_path / "requirements.txt"
         if not requirements.exists():
@@ -71,4 +118,10 @@ def init(
 
     console.print("\n🚀 To get started:")
     console.print(f"   cd {name}")
+    if db != "none":
+        console.print(f"   pip install -r requirements.txt   # installs runapi[{db}]")
+        if db == "postgres":
+            console.print("   docker compose up -d db            # start PostgreSQL")
+        console.print("   runapi db migrate -m 'create items'")
+        console.print("   runapi db upgrade")
     console.print("   runapi dev")

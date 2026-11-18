@@ -10,6 +10,7 @@ nav:
   - Configuration: configuration.md
   - Authentication: auth.md
   - Database & migrations: database.md
+  - Schemas & storage: storage.md
   - CLI: cli.md
   - Scaffolding (CRUD): crud.md
   - Deployment: deployment.md

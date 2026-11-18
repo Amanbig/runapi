@@ -67,6 +67,21 @@ db = [
     "alembic>=1.13",
     "aiosqlite>=0.19",
 ]
+sqlite = [
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "aiosqlite>=0.19",
+]
+postgres = [
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "asyncpg>=0.29",
+]
+mysql = [
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "aiomysql>=0.2",
+]
 dev = [
     "pytest>=7.0.0",
     "httpx>=0.24.0",
@@ -80,6 +95,9 @@ test = [
     "pytest-cov>=4.0.0",
     "redis>=5.0",
     "fakeredis>=2.20",
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "aiosqlite>=0.19",
 ]
 docs = [
     "mkdocs>=1.6",

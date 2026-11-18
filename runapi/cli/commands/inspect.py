@@ -138,7 +138,7 @@ def doctor():
             console.print(f"✅ {label}")
         else:
             problems += 1
-            console.print(f"❌ {label}" + (f" - [yellow]{hint}[/yellow]" if hint else ""))
+            console.print(f"❌ {label}" + (f" - [yellow]{escape(hint)}[/yellow]" if hint else ""))
 
     check(sys.version_info >= (3, 10), f"Python {sys.version.split()[0]}", "requires Python 3.10+")
     check(True, f"runapi {__version__}")
@@ -152,6 +152,15 @@ def doctor():
         console.print(f"⚠️  {warning}")
     if not result["errors"]:
         check(True, f"Configuration ({config.environment})")
+
+    if config.database_url:
+        from ...database import check_driver
+
+        try:
+            check_driver(config.database_url)
+            check(True, "Database driver installed")
+        except ImportError as exc:
+            check(False, "Database driver", str(exc))
 
     if problems:
         console.print(f"\n[red]{problems} problem(s) found[/red]")
