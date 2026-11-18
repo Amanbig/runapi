@@ -149,8 +149,20 @@ def start(
     """Run the RunApi server in production mode."""
     console.print(Panel.fit("🚀 [bold green]RunApi Production Server[/bold green]", style="green"))
 
+    # `start` is production mode; worker processes inherit this through the environment
+    os.environ.setdefault("ENVIRONMENT", "production")
+
     # Load configuration
     config = load_config(config_file)
+
+    problems = config.validate()
+    for warning in problems["warnings"]:
+        console.print(f"[yellow]⚠️  {warning}[/yellow]")
+    if problems["errors"] and config.is_production():
+        for error in problems["errors"]:
+            console.print(f"[red]❌ {error}[/red]")
+        console.print("[red]Refusing to start with an unsafe production configuration.[/red]")
+        raise typer.Exit(code=1)
 
     # Override config with CLI arguments
     if host:
@@ -295,13 +307,14 @@ async def get():
 
     # Create .env file
     env_content = """# RunApi Configuration
+ENVIRONMENT=development
 DEBUG=true
 HOST=127.0.0.1
 PORT=8000
 SECRET_KEY=__SECRET_KEY__
 
 # CORS Settings
-CORS_ORIGINS=*
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 CORS_CREDENTIALS=true
 
 # Rate Limiting
@@ -1056,16 +1069,21 @@ def schemas():
         console.print("[dim]💡 Tip: Run 'runapi generate schema user' to create a schema")
 
 
-_DOCKERFILE = """FROM python:3.12-slim
-
-WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-
+_DOCKERFILE = """FROM python:3.12-slim AS builder
+WORKDIR /build
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-COPY . .
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 ENVIRONMENT=production
+WORKDIR /app
+COPY --from=builder /install /usr/local
+RUN useradd --create-home --uid 1000 app
+COPY --chown=app:app . .
+USER app
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \\
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status == 200 else 1)"
 CMD ["runapi", "start", "--host", "0.0.0.0", "--port", "8000"]
 """
 
@@ -1149,12 +1167,14 @@ def doctor():
     check(True, f"runapi {__version__}")
     check(Path("main.py").exists(), "main.py found", "run from your project root")
     check(Path("routes").is_dir(), "routes/ directory found", "create a routes/ directory")
-    secret = load_config().secret_key
-    check(
-        secret != "dev-secret-key-change-in-production",
-        "SECRET_KEY is set",
-        "set SECRET_KEY in your .env",
-    )
+    config = load_config()
+    result = config.validate()
+    for error in result["errors"]:
+        check(False, "Configuration", error)
+    for warning in result["warnings"]:
+        console.print(f"⚠️  {warning}")
+    if not result["errors"]:
+        check(True, f"Configuration ({config.environment})")
 
     if problems:
         console.print(f"\n[red]{problems} problem(s) found[/red]")

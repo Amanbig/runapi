@@ -1,15 +1,17 @@
 # runapi/core.py
 import importlib.util
+import inspect
 import logging
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import Any, Callable, List, Optional, Type
 
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import RunApiConfig, get_config
-from .errors import setup_error_handlers
+from .errors import ConfigurationError, RouteLoadError, setup_error_handlers
 from .middleware import (
     AuthMiddleware,
     CompressionMiddleware,
@@ -26,11 +28,19 @@ class RunApiApp:
 
     def __init__(self, config: Optional[RunApiConfig] = None, **fastapi_kwargs):
         self.config = config or get_config()
-        self.app = self._create_fastapi_app(**fastapi_kwargs)
         self.middleware_stack: List[Type[RunApiMiddleware]] = []
+        self.route_errors: List[str] = []
+        self._startup_hooks: List[Callable[[], Any]] = []
+        self._shutdown_hooks: List[Callable[[], Any]] = []
+        self._readiness_checks: dict = {}
+        self._user_lifespan = fastapi_kwargs.pop("lifespan", None)
+        self.app = self._create_fastapi_app(**fastapi_kwargs)
 
         # Setup logging
         self._setup_logging()
+
+        # Refuse to start with an unsafe production configuration
+        self._validate_config()
 
         # Setup default middleware
         self._setup_default_middleware()
@@ -47,6 +57,9 @@ class RunApiApp:
         # Setup static files
         self._setup_static_files()
 
+        # Health and readiness endpoints
+        self._setup_health_endpoints()
+
     def _create_fastapi_app(self, **kwargs) -> FastAPI:
         """Create FastAPI application with configuration."""
         # Merge config with kwargs
@@ -58,7 +71,92 @@ class RunApiApp:
         }
         app_kwargs.update(kwargs)
 
+        app_kwargs["lifespan"] = self._lifespan
         return FastAPI(**app_kwargs)
+
+    @asynccontextmanager
+    async def _lifespan(self, app: FastAPI):
+        """Run startup/shutdown hooks (and a user-supplied lifespan, if any)."""
+        for hook in self._startup_hooks:
+            await self._call_hook(hook)
+        try:
+            if self._user_lifespan is not None:
+                async with self._user_lifespan(app):
+                    yield
+            else:
+                yield
+        finally:
+            for hook in reversed(self._shutdown_hooks):
+                try:
+                    await self._call_hook(hook)
+                except Exception:
+                    self.logger.exception("Error in shutdown hook")
+
+    @staticmethod
+    async def _call_hook(hook: Callable[[], Any]):
+        result = hook()
+        if inspect.isawaitable(result):
+            await result
+
+    def on_startup(self, func: Callable[[], Any]) -> Callable[[], Any]:
+        """Register a startup hook (sync or async). Usable as a decorator."""
+        self._startup_hooks.append(func)
+        return func
+
+    def on_shutdown(self, func: Callable[[], Any]) -> Callable[[], Any]:
+        """Register a shutdown hook (sync or async). Runs in reverse order."""
+        self._shutdown_hooks.append(func)
+        return func
+
+    def add_readiness_check(self, name: str, check: Callable[[], Any]) -> None:
+        """Register a readiness check. It must return truthy (or not raise) when healthy."""
+        self._readiness_checks[name] = check
+
+    def _validate_config(self):
+        result = self.config.validate()
+        for warning in result["warnings"]:
+            self.logger.warning(f"Config warning: {warning}")
+        if not result["errors"]:
+            return
+        if self.config.is_production():
+            raise ConfigurationError(
+                "Unsafe production configuration: " + "; ".join(result["errors"])
+            )
+        for error in result["errors"]:
+            self.logger.warning(f"Config problem (fatal in production): {error}")
+
+    def _setup_health_endpoints(self):
+        if not self.config.health_enabled:
+            return
+        existing = {getattr(r, "path", None) for r in self.app.routes}
+
+        if "/health" not in existing:
+
+            @self.app.get("/health", include_in_schema=False)
+            async def health():
+                return {"status": "ok"}
+
+        if "/ready" not in existing:
+
+            @self.app.get("/ready", include_in_schema=False)
+            async def ready():
+                from fastapi.responses import JSONResponse
+
+                results = {}
+                for name, check in self._readiness_checks.items():
+                    try:
+                        outcome = check()
+                        if inspect.isawaitable(outcome):
+                            outcome = await outcome
+                        results[name] = outcome is not False
+                    except Exception:
+                        self.logger.exception(f"Readiness check '{name}' failed")
+                        results[name] = False
+                healthy = all(results.values())
+                return JSONResponse(
+                    {"status": "ready" if healthy else "unavailable", "checks": results},
+                    status_code=200 if healthy else 503,
+                )
 
     def _setup_logging(self):
         """Setup logging configuration."""
@@ -73,10 +171,17 @@ class RunApiApp:
         if self.config.cors_origins:
             from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
 
+            credentials = self.config.cors_credentials
+            if credentials and "*" in self.config.cors_origins:
+                self.logger.warning(
+                    "CORS_CREDENTIALS ignored: it cannot be used with CORS_ORIGINS='*'"
+                )
+                credentials = False
+
             self.app.add_middleware(
                 FastAPICORSMiddleware,
                 allow_origins=self.config.cors_origins,
-                allow_credentials=self.config.cors_credentials,
+                allow_credentials=credentials,
                 allow_methods=self.config.cors_methods,
                 allow_headers=self.config.cors_headers,
             )
@@ -218,7 +323,11 @@ class RunApiApp:
             self.logger.debug(f"Loaded route: {route_file} with prefix: {final_prefix}")
 
         except Exception as e:
-            self.logger.error(f"Failed to load route {route_file}: {e}")
+            message = f"Failed to load route {route_file}: {e}"
+            self.route_errors.append(message)
+            if self.config.strict_routes:
+                raise RouteLoadError(message) from e
+            self.logger.exception(message)
 
     def _get_route_path(self, route_name: str) -> str:
         """Convert route name to FastAPI path."""

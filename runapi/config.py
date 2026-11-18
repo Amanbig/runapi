@@ -11,7 +11,9 @@ class RunApiConfig:
         self._load_env_file()
 
         # Core settings
-        self.debug: bool = self._get_bool("DEBUG", True)
+        self.environment: str = (self._get_str("ENVIRONMENT") or "development").lower()
+        # Debug is on by default only outside production
+        self.debug: bool = self._get_bool("DEBUG", self.environment != "production")
         self.host: str = self._get_str("HOST", "127.0.0.1")
         self.port: int = self._get_int("PORT", 8000)
         self.reload: bool = self._get_bool("RELOAD", True)
@@ -22,7 +24,8 @@ class RunApiConfig:
 
         # CORS settings
         self.cors_origins: List[str] = self._get_list("CORS_ORIGINS", ["*"])
-        self.cors_credentials: bool = self._get_bool("CORS_CREDENTIALS", True)
+        # Credentials are off by default: browsers reject "*" combined with credentials
+        self.cors_credentials: bool = self._get_bool("CORS_CREDENTIALS", False)
         self.cors_methods: List[str] = self._get_list("CORS_METHODS", ["*"])
         self.cors_headers: List[str] = self._get_list("CORS_HEADERS", ["*"])
 
@@ -60,6 +63,11 @@ class RunApiConfig:
         self.jwt_expiry: int = self._get_int("JWT_EXPIRY", 3600)  # 1 hour
         self.jwt_refresh_expiry: int = self._get_int("JWT_REFRESH_EXPIRY", 86400)  # 24 hours
 
+        # Operations
+        self.health_enabled: bool = self._get_bool("HEALTH_ENABLED", True)
+        # Fail startup when a route file cannot be imported (default: only in production)
+        self.strict_routes: bool = self._get_bool("STRICT_ROUTES", self.environment == "production")
+
         # Custom settings
         self.custom: Dict[str, Any] = {}
 
@@ -74,7 +82,8 @@ class RunApiConfig:
                         key, value = line.split("=", 1)
                         key = key.strip()
                         value = value.strip().strip('"').strip("'")
-                        os.environ[key] = value
+                        # Real environment variables win over the .env file
+                        os.environ.setdefault(key, value)
 
     def _get_str(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """Get string value from environment."""
@@ -123,8 +132,32 @@ class RunApiConfig:
         return self.debug
 
     def is_production(self) -> bool:
-        """Check if running in production mode."""
-        return not self.debug
+        """Check if running in production mode (``ENVIRONMENT=production``)."""
+        return self.environment == "production"
+
+    def validate(self) -> Dict[str, List[str]]:
+        """Check the configuration for risky settings.
+
+        Returns ``{"errors": [...], "warnings": [...]}``. Errors are only fatal in
+        production, where the app refuses to start.
+        """
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        if self.secret_key == "dev-secret-key-change-in-production":
+            errors.append("SECRET_KEY is the default value; set a strong random secret")
+        elif len(self.secret_key) < 32:
+            warnings.append("SECRET_KEY is shorter than 32 characters")
+        if "*" in self.cors_origins and self.cors_credentials:
+            errors.append("CORS_ORIGINS='*' cannot be combined with CORS_CREDENTIALS=true")
+        if self.is_production():
+            if self.debug:
+                errors.append("DEBUG is enabled in production")
+            if "*" in self.cors_origins:
+                warnings.append("CORS_ORIGINS allows every origin ('*')")
+            if "*" in self.allowed_hosts:
+                warnings.append("ALLOWED_HOSTS allows every host ('*')")
+        return {"errors": errors, "warnings": warnings}
 
 
 # Global configuration instance

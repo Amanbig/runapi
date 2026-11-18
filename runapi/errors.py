@@ -28,6 +28,14 @@ class RunApiException(Exception):
         super().__init__(self.message)
 
 
+class ConfigurationError(RuntimeError):
+    """Raised at startup when the configuration is unsafe or invalid."""
+
+
+class RouteLoadError(RuntimeError):
+    """Raised at startup (strict mode) when a route file cannot be loaded."""
+
+
 class ValidationError(RunApiException):
     """Raised when request validation fails."""
 

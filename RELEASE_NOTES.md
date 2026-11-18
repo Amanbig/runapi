@@ -1,41 +1,17 @@
-## runapi v0.2.0
+## runapi v0.3.0
 
-A big release: richer routing, WebSockets, token revocation, database migrations, a safer dependency stack, and tag-based releases.
+Production hardening and developer-experience release.
 
-### ⚠️ Breaking changes
-- **Python 3.10+ is now required** (3.8 and 3.9 are dropped; 3.13 is supported)
-- `python-jose` was replaced by `PyJWT` and `passlib` by `bcrypt`. If you import either library through runapi's internals, update your code. Existing `$2b$` password hashes keep working
-- Catch-all routes (`[...slug].py`) now actually behave as catch-alls; previously they were treated as a plain dynamic route
+### 🛡️ Production hardening
+- **Fail fast**: route files that fail to import now abort startup in production (`STRICT_ROUTES`, on by default when `ENVIRONMENT=production`); in development the full traceback is logged and `app.route_errors` lists them
+- **Safe defaults**: new `ENVIRONMENT` setting (`development` / `production`). `DEBUG` defaults to off in production; `CORS_CREDENTIALS` now defaults to `false`; `*` combined with credentials is rejected
+- **Startup validation**: `config.validate()` flags default/short `SECRET_KEY`, debug in production and wildcard CORS/hosts. Production refuses to start on errors; `runapi start` runs the same checks and `runapi doctor` reports them
+- **Health endpoints**: built-in `GET /health` and `GET /ready` (`HEALTH_ENABLED`); register checks with `app.add_readiness_check(name, fn)`. Your own `routes/health.py` takes precedence
+- **Lifecycle hooks**: `@app.on_startup` / `@app.on_shutdown` (sync or async); a custom `lifespan=` is still honoured
+- **Docker**: generated `Dockerfile` is multi-stage, runs as a non-root user and has a `HEALTHCHECK`
+- `runapi start` sets `ENVIRONMENT=production` (inherited by workers)
 
-### ✨ New features
-- **Routing**: dynamic folders (`routes/users/[id]/posts.py` -> `/users/{id}/posts`), route groups (`routes/(admin)/...`, not part of the URL), and deterministic ordering (static, then dynamic, then catch-all)
-- **WebSockets**: define `async def websocket(ws)` in a route file
-- **Auth**: token revocation (`revoke_token`, pluggable `TokenBlacklist`) and refresh-token rotation (`rotate_refresh_token`); tokens now carry a `jti`
-- **Database**: `runapi db init|migrate|upgrade|downgrade` (Alembic) and the `runapi[db]` extra
-- **CLI**:
-  - `runapi --version` / `-V`
-  - `runapi doctor` checks Python, project layout and `SECRET_KEY`
-  - `runapi build` builds a Docker image
-  - `runapi init --docker` generates `Dockerfile`, `.dockerignore` and `requirements.txt`
-  - `runapi init` now generates a random `SECRET_KEY` in `.env`
-  - `runapi routes` uses the router's path rules and shows `WS` endpoints
-- **Docs & examples**: `examples/basic` (covered by tests) and a MkDocs site in `docs/` (`runapi[docs]`)
-
-### 🔒 Security & dependencies
-- Removed `python-jose` and `ecdsa` (open advisories with no fix) in favour of `PyJWT`
-- Fixed `hash_password` crashing with bcrypt 5.x by using `bcrypt` directly
-- Raised minimum versions: `fastapi>=0.115.6`, `python-multipart>=0.0.18`, `uvicorn>=0.30`, `typer>=0.12`, `rich>=13.7`, `aiofiles>=23.2.1`, `psutil>=6.0`
-- CI runs `pip-audit`; Dependabot is enabled for pip and GitHub Actions; added `SECURITY.md`
-
-### 🚀 Release process
-- Releases are **tag-based**: pushing a `vX.Y.Z` tag tests, builds, publishes to PyPI and creates the GitHub Release. Nothing is published from plain pushes to `main`
-- The package version comes from the git tag (`hatch-vcs`); `runapi.__version__` reflects it
-- Added `RELEASE_NOTES.md` and the `release-notes/` history; see `CONTRIBUTING.md`
-
-### 🧹 Quality & community
-- Code quality fixes across repository, schema, auth and core modules (#14)
-- New tests for router discovery, nested routing, CLI, token revocation and the example app (#13)
-- `py.typed`, a pre-commit config, GitHub Actions bumped to current majors
-- Added `CODE_OF_CONDUCT.md`, `CODEOWNERS`, GitHub Sponsors `FUNDING.yml`, issue/PR templates and README updates (#19)
-
-**Full changelog**: https://github.com/Amanbig/runapi/compare/v0.1.3...v0.2.0
+### ⚠️ Behaviour changes
+- Real environment variables now take precedence over values in `.env` (previously `.env` overwrote them) — required for Docker/Kubernetes
+- `CORS_CREDENTIALS` defaults to `false`; new projects get explicit localhost CORS origins with credentials enabled
+- `config.is_production()` now means `ENVIRONMENT=production` (it used to mean "debug is off")

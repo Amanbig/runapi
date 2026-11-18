@@ -47,6 +47,7 @@ from .core import RunApiApp, create_app, create_runapi_app
 from .errors import (
     AuthenticationError,
     AuthorizationError,
+    ConfigurationError,
     ConflictError,
     DatabaseError,
     ErrorHandler,
@@ -54,6 +55,7 @@ from .errors import (
     ExternalServiceError,
     NotFoundError,
     RateLimitError,
+    RouteLoadError,
     RunApiException,
     ServerError,
     ValidationError,
@@ -157,6 +159,8 @@ __all__ = [
     "load_config",
     # Error handling
     "RunApiException",
+    "ConfigurationError",
+    "RouteLoadError",
     "ValidationError",
     "AuthenticationError",
     "AuthorizationError",
