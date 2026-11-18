@@ -1,18 +1,15 @@
 # runapi/core.py
-import importlib.util
-import inspect
 import logging
-import re
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Type
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .backends import RedisRateLimitBackend, uses_redis
 from .config import RunApiConfig, get_config
 from .errors import ConfigurationError, RouteLoadError, setup_error_handlers
+from .lifecycle import Lifecycle
 from .logging import RequestIDMiddleware, configure_logging
 from .middleware import (
     AuthMiddleware,
@@ -22,6 +19,7 @@ from .middleware import (
     RunApiMiddleware,
     SecurityHeadersMiddleware,
 )
+from .routing import RouteFile, build_router, discover_routes, load_module
 from .schemas import SchemaRegistry, load_schemas
 
 
@@ -32,10 +30,7 @@ class RunApiApp:
         self.config = config or get_config()
         self.middleware_stack: List[Type[RunApiMiddleware]] = []
         self.route_errors: List[str] = []
-        self._startup_hooks: List[Callable[[], Any]] = []
-        self._shutdown_hooks: List[Callable[[], Any]] = []
-        self._readiness_checks: dict = {}
-        self._user_lifespan = fastapi_kwargs.pop("lifespan", None)
+        self.lifecycle = Lifecycle(user_lifespan=fastapi_kwargs.pop("lifespan", None))
         self.app = self._create_fastapi_app(**fastapi_kwargs)
 
         # Setup logging
@@ -60,7 +55,8 @@ class RunApiApp:
         self._setup_static_files()
 
         # Health and readiness endpoints
-        self._setup_health_endpoints()
+        if self.config.health_enabled:
+            self.lifecycle.register_health_endpoints(self.app)
 
     def _create_fastapi_app(self, **kwargs) -> FastAPI:
         """Create FastAPI application with configuration."""
@@ -73,46 +69,22 @@ class RunApiApp:
         }
         app_kwargs.update(kwargs)
 
-        app_kwargs["lifespan"] = self._lifespan
+        app_kwargs["lifespan"] = self.lifecycle.lifespan
         return FastAPI(**app_kwargs)
-
-    @asynccontextmanager
-    async def _lifespan(self, app: FastAPI):
-        """Run startup/shutdown hooks (and a user-supplied lifespan, if any)."""
-        for hook in self._startup_hooks:
-            await self._call_hook(hook)
-        try:
-            if self._user_lifespan is not None:
-                async with self._user_lifespan(app):
-                    yield
-            else:
-                yield
-        finally:
-            for hook in reversed(self._shutdown_hooks):
-                try:
-                    await self._call_hook(hook)
-                except Exception:
-                    self.logger.exception("Error in shutdown hook")
-
-    @staticmethod
-    async def _call_hook(hook: Callable[[], Any]):
-        result = hook()
-        if inspect.isawaitable(result):
-            await result
 
     def on_startup(self, func: Callable[[], Any]) -> Callable[[], Any]:
         """Register a startup hook (sync or async). Usable as a decorator."""
-        self._startup_hooks.append(func)
+        self.lifecycle.startup_hooks.append(func)
         return func
 
     def on_shutdown(self, func: Callable[[], Any]) -> Callable[[], Any]:
         """Register a shutdown hook (sync or async). Runs in reverse order."""
-        self._shutdown_hooks.append(func)
+        self.lifecycle.shutdown_hooks.append(func)
         return func
 
     def add_readiness_check(self, name: str, check: Callable[[], Any]) -> None:
         """Register a readiness check. It must return truthy (or not raise) when healthy."""
-        self._readiness_checks[name] = check
+        self.lifecycle.readiness_checks[name] = check
 
     def _validate_config(self):
         result = self.config.validate_settings()
@@ -126,39 +98,6 @@ class RunApiApp:
             )
         for error in result["errors"]:
             self.logger.warning(f"Config problem (fatal in production): {error}")
-
-    def _setup_health_endpoints(self):
-        if not self.config.health_enabled:
-            return
-        existing = {getattr(r, "path", None) for r in self.app.routes}
-
-        if "/health" not in existing:
-
-            @self.app.get("/health", include_in_schema=False)
-            async def health():
-                return {"status": "ok"}
-
-        if "/ready" not in existing:
-
-            @self.app.get("/ready", include_in_schema=False)
-            async def ready():
-                from fastapi.responses import JSONResponse
-
-                results = {}
-                for name, check in self._readiness_checks.items():
-                    try:
-                        outcome = check()
-                        if inspect.isawaitable(outcome):
-                            outcome = await outcome
-                        results[name] = outcome is not False
-                    except Exception:
-                        self.logger.exception(f"Readiness check '{name}' failed")
-                        results[name] = False
-                healthy = all(results.values())
-                return JSONResponse(
-                    {"status": "ready" if healthy else "unavailable", "checks": results},
-                    status_code=200 if healthy else 503,
-                )
 
     def _setup_logging(self):
         """Setup logging configuration (JSON in production by default)."""
@@ -238,119 +177,24 @@ class RunApiApp:
             self.logger.debug(f"Loaded {len(loaded)} schema modules")
 
     def _load_routes(self):
-        """Load routes from project's routes/ folder."""
+        """Discover route files in the project's routes/ folder and register them."""
         routes_path = Path("routes")
-        if routes_path.exists():
-            self._load_routes_recursive(routes_path)
+        if not routes_path.exists():
+            return
+        for route in discover_routes(routes_path):
+            self._register_route(route)
 
-    @staticmethod
-    def _segment_to_path(segment: str) -> str:
-        """Convert a folder/file name segment to a URL path segment.
-
-        - ``(group)``   -> "" (route groups organise files without affecting the URL)
-        - ``[...slug]`` -> ``{slug:path}`` (catch-all)
-        - ``[id]``      -> ``{id}`` (dynamic)
-        """
-        if segment.startswith("(") and segment.endswith(")"):
-            return ""
-        if segment.startswith("[...") and segment.endswith("]"):
-            return f"{{{segment[4:-1]}:path}}"
-        if segment.startswith("[") and segment.endswith("]"):
-            return f"{{{segment[1:-1]}}}"
-        return segment
-
-    @staticmethod
-    def _specificity(url_path: str) -> list:
-        """Sort key so static routes register before dynamic, and catch-all last."""
-        ranks = []
-        for seg in url_path.strip("/").split("/"):
-            if ":path}" in seg:
-                ranks.append(2)
-            elif seg.startswith("{"):
-                ranks.append(1)
-            else:
-                ranks.append(0)
-        return ranks
-
-    def _load_routes_recursive(self, routes_dir: Path, prefix: str = ""):
-        """Discover route files, then register them most-specific first."""
-        found: List[tuple] = []
-        self._collect_route_files(routes_dir, routes_dir, prefix, found)
-        found.sort(key=lambda item: (self._specificity(item[2]), item[2]))
-        for route_file, url_prefix, _full in found:
-            self._load_route_file(route_file, url_prefix, routes_dir)
-
-    def _collect_route_files(self, root: Path, directory: Path, prefix: str, found: list):
-        for item in sorted(directory.iterdir()):
-            if item.is_dir():
-                # Skip hidden directories and __pycache__
-                if item.name.startswith(".") or item.name.startswith("__"):
-                    continue
-                part = self._segment_to_path(item.name)
-                new_prefix = f"{prefix}/{part}" if part else prefix
-                self._collect_route_files(root, item, new_prefix, found)
-            elif item.suffix == ".py" and item.name != "__init__.py":
-                file_path = self._get_route_path(item.stem)
-                full = f"{prefix}{file_path}" if file_path != "/" else (prefix or "/")
-                found.append((item, prefix, full))
-
-    def _load_route_file(
-        self, route_file: Path, prefix: str = "", routes_root: Optional[Path] = None
-    ):
-        """Load a single route file."""
+    def _register_route(self, route: RouteFile):
         try:
-            route_name = route_file.stem
-            root = routes_root or Path("routes")
-            try:
-                rel_parts = route_file.relative_to(root).with_suffix("").parts
-            except ValueError:
-                rel_parts = (route_name,)
-            safe = [re.sub(r"\W", "_", part) for part in rel_parts]
-            module_name = "routes." + ".".join(safe)
-
-            spec = importlib.util.spec_from_file_location(module_name, route_file)
-            if spec is None or spec.loader is None:
-                self.logger.warning(f"Could not load spec for route {route_file}")
-                return
-
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            # Extract router or create one
-            route_router = getattr(module, "router", APIRouter())
-            path = self._get_route_path(route_name)
-            if path == "/" and prefix:
-                # routes/users/index.py -> "/users" (not "/users/", which would redirect)
-                path = ""
-
-            # Map HTTP methods to functions
-            for method in ["get", "post", "put", "delete", "patch", "head", "options", "trace"]:
-                if hasattr(module, method):
-                    getattr(route_router, method)(path)(getattr(module, method))
-
-            # WebSocket endpoint: define `async def websocket(ws: WebSocket)`
-            if callable(getattr(module, "websocket", None)):
-                route_router.add_api_websocket_route(path, module.websocket)
-
-            # Include the router with proper prefix
-            final_prefix = prefix if prefix else ""
-            self.app.include_router(route_router, prefix=final_prefix)
-
-            self.logger.debug(f"Loaded route: {route_file} with prefix: {final_prefix}")
-
+            router = build_router(load_module(route), route.path)
+            self.app.include_router(router, prefix=route.prefix)
+            self.logger.debug(f"Loaded route: {route.file} with prefix: {route.prefix}")
         except Exception as e:
-            message = f"Failed to load route {route_file}: {e}"
+            message = f"Failed to load route {route.file}: {e}"
             self.route_errors.append(message)
             if self.config.strict_routes:
                 raise RouteLoadError(message) from e
             self.logger.exception(message)
-
-    def _get_route_path(self, route_name: str) -> str:
-        """Convert route name to FastAPI path."""
-        if route_name == "index":
-            return "/"
-        segment = self._segment_to_path(route_name)
-        return f"/{segment}" if segment else "/"
 
     def add_middleware(self, middleware_class: Type[RunApiMiddleware], **kwargs):
         """Add custom middleware to the application."""

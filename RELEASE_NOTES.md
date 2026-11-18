@@ -34,6 +34,12 @@ Production hardening and developer-experience release.
 ### 🐛 Fixes
 - `routes/<folder>/index.py` is now served at `/folder`; it was only reachable at `/folder/` (a bare `/folder` returned a 307 redirect)
 
+### 🏗️ Internal restructuring (no behaviour change)
+- `runapi/cli.py` (1,350 lines) became a `runapi/cli/` package: one module per command group, and the generated files now live as plain template files under `cli/templates/` (syntax-checked in tests)
+- Route discovery moved out of `RunApiApp` into `runapi/routing.py`; hooks and health endpoints into `runapi/lifecycle.py`
+- Added `ARCHITECTURE.md`; removed overlapping legacy test scripts and the stale `MANIFEST.in`; the manual end-to-end script is now `scripts/e2e_smoke.py`
+- Generated `middleware`/`route` files for multi-word names now use a valid class name (`MyWidgetMiddleware` instead of `My_WidgetMiddleware`)
+
 ### ⚠️ Behaviour changes
 - `RunApiConfig.validate()` is now `validate_settings()` (it clashed with Pydantic's `BaseModel.validate`)
 - **Security**: the rate limiter no longer trusts `X-Forwarded-For` by default (it could be spoofed to bypass limits). Behind a proxy you control, set `TRUST_PROXY_HEADERS=true`

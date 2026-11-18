@@ -1,0 +1,17 @@
+"""
+RunApi Application Entry Point
+"""
+from runapi import create_runapi_app
+
+# Create RunApi application
+runapi_app = create_runapi_app(
+    title="My RunApi API",
+    description="Built with RunApi framework",
+    version="1.0.0"
+)
+
+# Get FastAPI app for uvicorn
+app = runapi_app.get_app()
+
+if __name__ == "__main__":
+    runapi_app.run()

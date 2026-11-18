@@ -1,0 +1,12 @@
+"""
+Example API route
+GET /api/hello
+"""
+from runapi import JSONResponse
+
+async def get():
+    return JSONResponse({
+        "message": "Hello from RunApi!",
+        "framework": "RunApi",
+        "status": "success"
+    })

@@ -1,0 +1,23 @@
+"""
+RunApi Application Entry Point
+"""
+from runapi import create_runapi_app, get_config
+
+# Load configuration
+config = get_config()
+
+# Create RunApi application
+runapi_app = create_runapi_app(
+    title="My RunApi API",
+    description="Built with RunApi framework",
+    version="1.0.0"
+)
+
+# Add custom middleware if needed
+# runapi_app.add_auth_middleware(protected_paths=["/api/protected"])
+
+# Get FastAPI app for uvicorn
+app = runapi_app.get_app()
+
+if __name__ == "__main__":
+    runapi_app.run()
