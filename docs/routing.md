@@ -30,3 +30,8 @@ async def websocket(ws: WebSocket):
     await ws.accept()
     await ws.send_text("hello")
 ```
+
+## Troubleshooting
+
+- A route file with no handlers (or with misnamed ones such as `GET` or `get_users`) logs a warning at startup that says what to rename; `app.route_warnings` lists them.
+- A route file that fails to import is logged with its traceback (and aborts startup in production). `app.route_errors` lists them.

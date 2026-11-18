@@ -27,6 +27,7 @@ Settings are read from environment variables, or from a `.env` file in the proje
 | `LOG_LEVEL` | `INFO` |
 | `LOG_FORMAT` | (see source) |
 | `LOG_JSON` | depends on `ENVIRONMENT` |
+| `LOG_REQUESTS` | same as `DEBUG` |
 | `STATIC_FILES_ENABLED` | `True` |
 | `STATIC_FILES_PATH` | `static` |
 | `STATIC_FILES_URL` | `/static` |
@@ -45,3 +46,15 @@ Lists (`CORS_ORIGINS`, `ALLOWED_HOSTS`, ...) are comma-separated.
 `ENVIRONMENT=production` (set automatically by `runapi start`) turns debug off, enables JSON logs and strict route loading, and makes unsafe settings (default `SECRET_KEY`, debug on, wildcard CORS with credentials) abort startup. See [Deployment](deployment.md).
 
 Run `runapi doctor` to check your configuration.
+
+## DATABASE_URL
+
+Checked at startup. Use an async driver URL, for example:
+
+| Database | URL |
+|----------|-----|
+| SQLite | `sqlite+aiosqlite:///./app.db` |
+| PostgreSQL | `postgresql+asyncpg://user:password@localhost:5432/mydb` |
+| MySQL | `mysql+aiomysql://user:password@localhost:3306/mydb` |
+
+A value with no `://` is an error; `postgres://` or a URL without an async driver produces a warning with the fix.

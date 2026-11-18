@@ -63,6 +63,7 @@ class RunApiConfig(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] %(message)s"
     log_json: Optional[bool] = None  # defaults to True in production
+    log_requests: Optional[bool] = None  # log every request/response; defaults to DEBUG
 
     # Static files
     static_files_enabled: bool = True
@@ -115,6 +116,8 @@ class RunApiConfig(BaseSettings):
             object.__setattr__(self, "debug", not production)
         if self.log_json is None:
             object.__setattr__(self, "log_json", production)
+        if self.log_requests is None:
+            object.__setattr__(self, "log_requests", bool(self.debug))
         if self.strict_routes is None:
             object.__setattr__(self, "strict_routes", production)
         return self
@@ -147,6 +150,28 @@ class RunApiConfig(BaseSettings):
         """Check if running in production mode (``ENVIRONMENT=production``)."""
         return self.environment == "production"
 
+    def _check_database_url(self, errors: List[str], warnings: List[str]) -> None:
+        url = self.database_url
+        if not url:
+            return
+        example = "e.g. postgresql+asyncpg://user:password@localhost:5432/mydb"
+        if "://" not in url:
+            errors.append(f"DATABASE_URL is not a valid URL (expected dialect://..., {example})")
+            return
+        scheme = url.split("://", 1)[0].lower()
+        dialect, _, driver = scheme.partition("+")
+        if dialect == "postgres":
+            warnings.append(
+                "DATABASE_URL uses 'postgres://', which SQLAlchemy does not accept; "
+                "use 'postgresql+asyncpg://'"
+            )
+        elif dialect in {"postgresql", "mysql", "sqlite"} and not driver:
+            async_driver = {"postgresql": "asyncpg", "mysql": "aiomysql", "sqlite": "aiosqlite"}
+            warnings.append(
+                f"DATABASE_URL has no async driver; async SQLAlchemy needs "
+                f"'{dialect}+{async_driver[dialect]}://'"
+            )
+
     def validate_settings(self) -> Dict[str, List[str]]:
         """Check the configuration for risky settings.
 
@@ -162,6 +187,7 @@ class RunApiConfig(BaseSettings):
             warnings.append("SECRET_KEY is shorter than 32 characters")
         if "*" in self.cors_origins and self.cors_credentials:
             errors.append("CORS_ORIGINS='*' cannot be combined with CORS_CREDENTIALS=true")
+        self._check_database_url(errors, warnings)
         if self.is_production():
             if self.debug:
                 errors.append("DEBUG is enabled in production")

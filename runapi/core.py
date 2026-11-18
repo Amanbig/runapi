@@ -19,7 +19,15 @@ from .middleware import (
     RunApiMiddleware,
     SecurityHeadersMiddleware,
 )
-from .routing import RouteFile, build_router, discover_routes, load_module
+from .routing import (
+    HTTP_METHODS,
+    RouteFile,
+    build_router,
+    discover_routes,
+    has_handlers,
+    load_module,
+    misnamed_handlers,
+)
 from .schemas import SchemaRegistry, load_schemas
 
 
@@ -30,6 +38,7 @@ class RunApiApp:
         self.config = config or get_config()
         self.middleware_stack: List[Type[RunApiMiddleware]] = []
         self.route_errors: List[str] = []
+        self.route_warnings: List[str] = []
         self.lifecycle = Lifecycle(user_lifespan=fastapi_kwargs.pop("lifespan", None))
         self.app = self._create_fastapi_app(**fastapi_kwargs)
 
@@ -145,7 +154,7 @@ class RunApiApp:
         self.app.add_middleware(SecurityHeadersMiddleware)
 
         # Request logging middleware
-        if self.config.debug:
+        if self.config.log_requests:
             self.app.add_middleware(RequestLoggingMiddleware, logger=self.logger)
 
         # Compression middleware
@@ -184,9 +193,23 @@ class RunApiApp:
         for route in discover_routes(routes_path):
             self._register_route(route)
 
+    def _warn_no_handlers(self, route: RouteFile, suspects: List[str]):
+        message = (
+            f"Route file {route.file} defines no handlers, so {route.full_path} will return 404. "
+            f"Define functions named exactly: {', '.join(HTTP_METHODS[:5])} (lower-case), "
+            "or `websocket`, or export a `router`."
+        )
+        if suspects:
+            message += f" Did you mean to rename {', '.join(suspects)}?"
+        self.route_warnings.append(message)
+        self.logger.warning(message)
+
     def _register_route(self, route: RouteFile):
         try:
-            router = build_router(load_module(route), route.path)
+            module = load_module(route)
+            router = build_router(module, route.path)
+            if not has_handlers(router):
+                self._warn_no_handlers(route, misnamed_handlers(module))
             self.app.include_router(router, prefix=route.prefix)
             self.logger.debug(f"Loaded route: {route.file} with prefix: {route.prefix}")
         except Exception as e:
