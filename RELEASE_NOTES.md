@@ -7,9 +7,19 @@
 
 ### Security & dependencies
 - **Security**: Replaced `python-jose` (and its `ecdsa` dependency, both with unfixed advisories) with `PyJWT`
-- **Fix**: Pinned `bcrypt<5` — `passlib` is incompatible with bcrypt 5.x and password hashing failed
+- **Security/Fix**: Password hashing now uses `bcrypt` directly; the unmaintained `passlib` dependency is removed (it was incompatible with bcrypt 5.x and `hash_password` crashed). Existing `$2b$` hashes remain valid
 - Raised minimum versions: `fastapi>=0.115.6`, `python-multipart>=0.0.18`, `uvicorn>=0.30`, `typer>=0.12`, `rich>=13.7`, `aiofiles>=23.2.1`, `psutil>=6.0`
 - CI now runs a `pip-audit` dependency scan; Dependabot enabled for pip and GitHub Actions
+
+### CLI
+- Added `runapi --version` / `-V`; `runapi info` now shows the real version
+- Added `runapi doctor` to check Python, project layout and `SECRET_KEY`
+- Added `runapi init --docker` (generates `Dockerfile`, `.dockerignore`, `requirements.txt`)
+- `runapi init` now generates a random `SECRET_KEY` in `.env`
+
+### Python support
+- Dropped Python 3.8 (end of life); added Python 3.13. Minimum is now 3.9
+- CI runs `pytest` with coverage; added `py.typed` and a pre-commit config
 
 ### Community
 - Added `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS` and GitHub Sponsors `FUNDING.yml`

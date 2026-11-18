@@ -11,8 +11,9 @@ Provides:
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, List, Optional, Type, TypeVar
 
 from .errors import NotFoundError
 from .repository import BaseRepository

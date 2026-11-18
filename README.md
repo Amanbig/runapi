@@ -1146,7 +1146,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Built on top of [FastAPI](https://fastapi.tiangolo.com/) by Sebastián Ramirez
 - Inspired by [Next.js](https://nextjs.org/) file-based routing by Vercel
 - Uses [Typer](https://typer.tiangolo.com/) for CLI by Sebastián Ramirez
-- Password hashing with [Passlib](https://passlib.readthedocs.io/)
+- Password hashing with [bcrypt](https://pypi.org/project/bcrypt/)
 - Testing with [pytest](https://pytest.org/) and [httpx](https://www.python-httpx.org/)
 
 ## Related Projects

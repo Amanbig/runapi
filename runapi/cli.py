@@ -1,5 +1,6 @@
 # runapi/cli.py
 import os
+import secrets
 from pathlib import Path
 
 import typer
@@ -8,10 +9,31 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from . import __version__
 from .config import load_config
 
 app = typer.Typer(name="runapi", help="RunApi - Next.js-inspired Python Backend Framework")
 console = Console()
+
+
+def _version_callback(value: bool):
+    if value:
+        typer.echo(f"runapi {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _root(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the runapi version and exit.",
+    ),
+):
+    """RunApi - Next.js-inspired Python Backend Framework."""
 
 
 @app.command()
@@ -180,6 +202,7 @@ def start(
 def init(
     name: str = typer.Argument(..., help="Project name"),
     template: str = typer.Option("basic", "--template", "-t", help="Project template"),
+    docker: bool = typer.Option(False, "--docker", help="Also generate a Dockerfile"),
 ):
     """Initialize a new RunApi project."""
     project_path = Path(name)
@@ -272,7 +295,7 @@ async def get():
 DEBUG=true
 HOST=127.0.0.1
 PORT=8000
-SECRET_KEY=dev-secret-key-change-in-production
+SECRET_KEY=__SECRET_KEY__
 
 # CORS Settings
 CORS_ORIGINS=*
@@ -292,6 +315,7 @@ STATIC_FILES_PATH=static
 STATIC_FILES_URL=/static
 """
 
+    env_content = env_content.replace("__SECRET_KEY__", secrets.token_hex(32))
     (project_path / ".env").write_text(env_content, encoding="utf-8")
 
     # Create .gitignore
@@ -385,6 +409,17 @@ async def post():
 """
 
     (project_path / "README.md").write_text(readme_content, encoding="utf-8")
+
+    if docker:
+        req = project_path / "requirements.txt"
+        if not req.exists():
+            req.write_text(
+                f"runapi>={__version__.split('+')[0].split('.dev')[0]}\n", encoding="utf-8"
+            )
+        (project_path / "Dockerfile").write_text(_DOCKERFILE, encoding="utf-8")
+        (project_path / ".dockerignore").write_text(
+            "__pycache__/\n*.pyc\n.venv/\n.env\n.git/\n", encoding="utf-8"
+        )
 
     console.print("✅ [green]Project created successfully!")
     console.print("\n📁 Project structure:")
@@ -1021,6 +1056,52 @@ def schemas():
         console.print("[dim]💡 Tip: Run 'runapi generate schema user' to create a schema")
 
 
+_DOCKERFILE = """FROM python:3.12-slim
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+EXPOSE 8000
+CMD ["runapi", "start", "--host", "0.0.0.0", "--port", "8000"]
+"""
+
+
+@app.command()
+def doctor():
+    """Check the environment and project for common problems."""
+    import sys
+
+    problems = 0
+
+    def check(ok: bool, label: str, hint: str = ""):
+        nonlocal problems
+        if ok:
+            console.print(f"✅ {label}")
+        else:
+            problems += 1
+            console.print(f"❌ {label}" + (f" - [yellow]{hint}[/yellow]" if hint else ""))
+
+    check(sys.version_info >= (3, 9), f"Python {sys.version.split()[0]}", "requires Python 3.9+")
+    check(True, f"runapi {__version__}")
+    check(Path("main.py").exists(), "main.py found", "run from your project root")
+    check(Path("routes").is_dir(), "routes/ directory found", "create a routes/ directory")
+    secret = load_config().secret_key
+    check(
+        secret != "dev-secret-key-change-in-production",
+        "SECRET_KEY is set",
+        "set SECRET_KEY in your .env",
+    )
+
+    if problems:
+        console.print(f"\n[red]{problems} problem(s) found[/red]")
+        raise typer.Exit(code=1)
+    console.print("\n[green]All checks passed[/green]")
+
+
 @app.command()
 def info():
     """Show project information and configuration."""
@@ -1032,7 +1113,7 @@ def info():
     # Project info
     info_table = Table(show_header=False, box=None)
     info_table.add_row("📁 Project Directory:", str(Path.cwd()))
-    info_table.add_row("🐍 RunApi Version:", "0.1.0")
+    info_table.add_row("🐍 RunApi Version:", __version__)
 
     # Check main.py
     if Path("main.py").exists():
