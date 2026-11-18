@@ -52,6 +52,32 @@ class PasswordManager:
         return secrets.token_urlsafe(length)
 
 
+_RESERVED_CLAIMS = ("exp", "iat", "type", "jti")
+
+
+class TokenBlacklist:
+    """In-memory store of revoked token ids (``jti``).
+
+    Subclass and override ``add``/``is_revoked`` to back it with Redis or a database
+    when running multiple workers.
+    """
+
+    def __init__(self):
+        self._revoked: Dict[str, float] = {}
+
+    def add(self, jti: str, expires_at: float) -> None:
+        self._purge()
+        self._revoked[jti] = expires_at
+
+    def is_revoked(self, jti: str) -> bool:
+        return jti in self._revoked
+
+    def _purge(self) -> None:
+        now = time.time()
+        for key in [k for k, exp in self._revoked.items() if exp < now]:
+            del self._revoked[key]
+
+
 class JWTManager:
     """JWT token management utilities using PyJWT."""
 
@@ -61,6 +87,7 @@ class JWTManager:
         self.algorithm = algorithm or self.config.jwt_algorithm
         self.access_token_expire = self.config.jwt_expiry
         self.refresh_token_expire = self.config.jwt_refresh_expiry
+        self.blacklist = TokenBlacklist()
 
         if self.secret_key == "dev-secret-key-change-in-production":
             raise ValueError("Change the SECRET_KEY in production!")
@@ -83,7 +110,14 @@ class JWTManager:
             )
             expire = datetime.now(timezone.utc) + timedelta(seconds=expire_minutes)
 
-        to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "type": token_type})
+        to_encode.update(
+            {
+                "exp": expire,
+                "iat": datetime.now(timezone.utc),
+                "type": token_type,
+                "jti": secrets.token_hex(16),
+            }
+        )
 
         # Encode token
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -98,10 +132,33 @@ class JWTManager:
             if "exp" in payload and payload["exp"] < time.time():
                 return None
 
+            if payload.get("jti") and self.blacklist.is_revoked(payload["jti"]):
+                return None
+
             return payload
 
         except jwt.PyJWTError:
             return None
+
+    def revoke_token(self, token: str) -> bool:
+        """Revoke a token so ``verify_token`` rejects it. Returns False if it is invalid."""
+        payload = self.verify_token(token)
+        if not payload or not payload.get("jti"):
+            return False
+        self.blacklist.add(payload["jti"], float(payload.get("exp", time.time())))
+        return True
+
+    def rotate_refresh_token(self, refresh_token: str) -> Optional[Dict[str, str]]:
+        """Exchange a refresh token for a new access + refresh pair, revoking the old one."""
+        payload = self.verify_token(refresh_token)
+        if not payload or payload.get("type") != "refresh":
+            return None
+        self.revoke_token(refresh_token)
+        user_data = {k: v for k, v in payload.items() if k not in _RESERVED_CLAIMS}
+        return {
+            "access_token": self.create_access_token(user_data),
+            "refresh_token": self.create_refresh_token(user_data),
+        }
 
     def create_access_token(
         self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
@@ -122,7 +179,7 @@ class JWTManager:
             return None
 
         # Remove token-specific fields
-        user_data = {k: v for k, v in payload.items() if k not in ["exp", "iat", "type"]}
+        user_data = {k: v for k, v in payload.items() if k not in _RESERVED_CLAIMS}
         return self.create_access_token(user_data)
 
 
@@ -272,6 +329,16 @@ def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta
 def verify_token(token: str) -> Optional[Dict[str, Any]]:
     """Verify a token using the global JWT manager."""
     return _get_jwt_manager().verify_token(token)
+
+
+def revoke_token(token: str) -> bool:
+    """Revoke a token (e.g. on logout) using the global JWT manager."""
+    return _get_jwt_manager().revoke_token(token)
+
+
+def rotate_refresh_token(refresh_token: str) -> Optional[Dict[str, str]]:
+    """Swap a refresh token for a new access/refresh pair, revoking the old one."""
+    return _get_jwt_manager().rotate_refresh_token(refresh_token)
 
 
 def get_current_user():

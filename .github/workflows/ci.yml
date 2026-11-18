@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # PRs are checked before merge; the release workflow re-runs the tests on tags.
   pull_request:
     branches: [main]
 
@@ -11,8 +10,8 @@ jobs:
     name: Lint & Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: pip install ruff mypy
@@ -25,10 +24,10 @@ jobs:
     name: Dependency vulnerability audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: |
@@ -43,15 +42,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # hatch-vcs needs tags to compute the version
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
-      - run: pytest tests/test_runapi.py --cov=runapi --cov-report=term-missing
+      - run: pytest tests --ignore=tests/test_runapi_installation.py --cov=runapi --cov-report=term-missing

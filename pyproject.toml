@@ -5,7 +5,7 @@ description = "A Next.js-inspired file-based routing framework built on FastAPI"
 readme = "README.md"
 authors = [{ name = "Amanpreet Singh", email = "amanpreetsinghjhiwant7@gmail.com" }]
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.6",
     "uvicorn>=0.30.0",
@@ -26,7 +26,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -54,11 +53,16 @@ include = ["runapi", "runapi/py.typed", "README.md", "LICENSE", "pyproject.toml"
 [project.urls]
 Homepage = "https://github.com/Amanbig/runapi"
 Repository = "https://github.com/Amanbig/runapi"
-Documentation = "https://github.com/Amanbig/runapi#readme"
+Documentation = "https://github.com/Amanbig/runapi/tree/main/docs"
 Issues = "https://github.com/Amanbig/runapi/issues"
 Changelog = "https://github.com/Amanbig/runapi/tree/main/release-notes"
 
 [project.optional-dependencies]
+db = [
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "aiosqlite>=0.19",
+]
 dev = [
     "pytest>=7.0.0",
     "httpx>=0.24.0",
@@ -71,6 +75,10 @@ test = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+]
 lint = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
@@ -80,7 +88,7 @@ lint = [
 runapi = "runapi.cli:main"
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 100
 exclude = [
     ".git",
@@ -106,15 +114,17 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
     "B905",   # zip without explicit strict parameter
-    "UP006",  # keep typing.Dict/List style (annotations kept 3.8-style for now)
+    "UP006",  # keep typing.Dict/List style (typing style kept for now)
     "UP035",  # deprecated typing imports
+    "UP007",  # Optional[X] -> X | None
+    "UP045",  # Optional[X] -> X | None
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["runapi"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = false
