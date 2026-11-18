@@ -192,6 +192,22 @@ Before submitting, make sure:
 
 ---
 
+## 🚀 Releasing
+
+Releases are **tag-based**: nothing is published unless a `vX.Y.Z` tag is pushed. The package version comes from the tag (via `hatch-vcs`), so never edit a version number by hand.
+
+1. Write the notes in `release-notes/X.Y.Z.md` and copy them to `RELEASE_NOTES.md` (the two must be identical).
+2. Merge to `main` through a PR.
+3. Tag and push:
+   ```bash
+   git checkout main && git pull
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+4. The `Release` workflow verifies the tag is on `main`, runs tests, builds, publishes to PyPI and creates the GitHub Release using the notes file.
+
+---
+
 ## 🤝 Code of Conduct
 
 Please be respectful and inclusive.

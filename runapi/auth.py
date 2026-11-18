@@ -10,9 +10,9 @@ try:
 except ImportError:
     CryptContext = None
 
+import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 
 from .config import get_config
 
@@ -42,7 +42,7 @@ class PasswordManager:
 
 
 class JWTManager:
-    """JWT token management utilities using python-jose."""
+    """JWT token management utilities using PyJWT."""
 
     def __init__(self, secret_key: str = None, algorithm: str = "HS256"):
         self.config = get_config()
@@ -83,13 +83,13 @@ class JWTManager:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
 
-            # Check expiration (handled by jose, but double checking payload)
+            # Check expiration (handled by PyJWT, but double checking payload)
             if "exp" in payload and payload["exp"] < time.time():
                 return None
 
             return payload
 
-        except JWTError:
+        except jwt.PyJWTError:
             return None
 
     def create_access_token(

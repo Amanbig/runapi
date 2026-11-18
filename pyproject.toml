@@ -1,21 +1,22 @@
 [project]
 name = "runapi"
-version = "0.1.3"
+dynamic = ["version"]
 description = "A Next.js-inspired file-based routing framework built on FastAPI"
 readme = "README.md"
 authors = [{ name = "Amanpreet Singh", email = "amanpreetsinghjhiwant7@gmail.com" }]
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
 dependencies = [
-    "fastapi>=0.103.0",
-    "uvicorn>=0.23.0",
-    "typer>=0.9.0",
-    "rich>=13.0.0",
-    "passlib[bcrypt]>=1.7.4",
-    "python-jose[cryptography]>=3.3.0",
-    "python-multipart>=0.0.6",
-    "aiofiles>=23.0.0",
-    "psutil>=5.9.0",
+    "fastapi>=0.115.6",
+    "uvicorn>=0.30.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "passlib>=1.7.4",
+    "bcrypt>=4.0.1,<5",  # passlib is incompatible with bcrypt 5.x
+    "PyJWT>=2.10.1",
+    "python-multipart>=0.0.18",
+    "aiofiles>=23.2.1",
+    "psutil>=6.0.0",
 ]
 keywords = ["fastapi", "framework", "file-based-routing", "nextjs", "api", "backend", "web", "async"]
 classifiers = [
@@ -39,15 +40,24 @@ classifiers = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "runapi/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["runapi", "README.md", "LICENSE", "pyproject.toml"]
 
 [project.urls]
 Homepage = "https://github.com/Amanbig/runapi"
 Repository = "https://github.com/Amanbig/runapi"
 Documentation = "https://github.com/Amanbig/runapi#readme"
 Issues = "https://github.com/Amanbig/runapi/issues"
-Changelog = "https://github.com/Amanbig/runapi/releases"
+Changelog = "https://github.com/Amanbig/runapi/tree/main/release-notes"
 
 [project.optional-dependencies]
 dev = [

@@ -1103,44 +1103,7 @@ Please include:
 
 ## Changelog
 
-### v0.1.3 (Latest)
-- **New Feature**: Schema layer with auto-discovery from `schemas/` directory
-- **New Feature**: `BaseSchema`, `IDMixin`, `TimestampMixin` for consistent model definitions
-- **New Feature**: `PaginatedResponse` and `PaginationParams` for pagination support
-- **New Feature**: Repository pattern with `BaseRepository`, `InMemoryRepository`, `TypedInMemoryRepository`
-- **New Feature**: Optional `SQLAlchemyRepository` for async database support
-- **New Feature**: Service layer with `CRUDService`, `ValidatedService`
-- **New Feature**: Service decorators: `@validate_input`, `@require_exists`, `@log_operation`
-- **New Feature**: `ServiceFactory` and `RepositoryFactory` for dependency injection
-- **CLI**: Added `runapi generate schema <name>` command
-- **CLI**: Added `runapi generate repository <name>` command
-- **CLI**: Added `runapi generate service <name>` command
-- **CLI**: Added `runapi schemas` command to list all schemas
-- **CLI**: Updated `runapi init` to create schemas/, repositories/, services/ directories
-- **Tests**: Added 20 comprehensive tests covering all new features
-
-### v0.1.2
-- **New Feature**: Added `runapi start` command for production deployments (no-reload, multi-worker support)
-- **Performance**: Optimized startup time by ignoring irrelevant directories during route discovery
-- **Performance**: Replaced O(N) rate limiting with O(1) Fixed Window Counter algorithm
-- **Performance**: Implemented streaming compression using `GZipMiddleware` for lower TTFB and memory usage
-- **Security**: Refactored authentication to use standard `python-jose` library instead of manual implementation
-- **CLI**: Optimized `runapi dev` startup speed and `runapi routes` robustness
-
-### v0.1.1
-- **Bug Fix**: Fixed `runapi dev` command failing to import main module
-- **Enhancement**: Improved CLI error handling and validation
-- **Enhancement**: Better Python path management for uvicorn integration
-- **Enhancement**: Added pre-validation of main.py before server startup
-
-### v0.1.0
-- Initial release
-- File-based routing system
-- JWT authentication
-- Middleware stack
-- CLI tools
-- Configuration management
-- Error handling system
+Per-version notes live in [`release-notes/`](release-notes/) and on the [GitHub Releases](https://github.com/Amanbig/runapi/releases) page. Latest: [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
 
 ## License
 

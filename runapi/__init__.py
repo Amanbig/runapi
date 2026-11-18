@@ -2,7 +2,15 @@
 RunApi - A Next.js-inspired file-based routing framework built on FastAPI
 """
 
-__version__ = "0.1.3"
+try:
+    from ._version import __version__
+except ImportError:  # running from a source tree without a build step
+    try:
+        from importlib.metadata import version as _pkg_version
+
+        __version__ = _pkg_version("runapi")
+    except Exception:  # pragma: no cover
+        __version__ = "0.0.0+unknown"
 __author__ = "Amanpreet Singh"
 __email__ = "amanpreetsinghjhiwant7@gmail.com"
 
