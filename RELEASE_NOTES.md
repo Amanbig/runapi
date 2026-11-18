@@ -11,7 +11,13 @@ Production hardening and developer-experience release.
 - **Docker**: generated `Dockerfile` is multi-stage, runs as a non-root user and has a `HEALTHCHECK`
 - `runapi start` sets `ENVIRONMENT=production` (inherited by workers)
 
+### ⚙️ Typed configuration & logging
+- Configuration is now built on `pydantic-settings`: typed values, range checks, and clear `ConfigurationError`s that name the bad variable (e.g. `PORT: Input should be a valid integer`) instead of silently falling back to defaults
+- **Structured logging**: `LOG_JSON` (on by default in production) emits one JSON object per line; request logs include method, path, status and duration
+- **Request IDs**: every request gets an `X-Request-ID` (an incoming one is honoured), returned in the response and attached to all log lines; use `runapi.get_request_id()` in your code
+
 ### ⚠️ Behaviour changes
+- Invalid configuration values now raise an error at startup instead of being ignored. `pydantic-settings>=2.2` is a new dependency
 - Real environment variables now take precedence over values in `.env` (previously `.env` overwrote them) — required for Docker/Kubernetes
 - `CORS_CREDENTIALS` defaults to `false`; new projects get explicit localhost CORS origins with credentials enabled
 - `config.is_production()` now means `ENVIRONMENT=production` (it used to mean "debug is off")

@@ -41,7 +41,13 @@ class RequestLoggingMiddleware(RunApiMiddleware):
         self.logger.info(
             f"Response: {response.status_code} - "
             f"Time: {process_time:.4f}s - "
-            f"Size: {response.headers.get('content-length', 'unknown')}"
+            f"Size: {response.headers.get('content-length', 'unknown')}",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": round(process_time * 1000, 2),
+            },
         )
 
         response.headers["X-Process-Time"] = str(process_time)

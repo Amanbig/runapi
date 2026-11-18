@@ -39,3 +39,15 @@ async def disconnect(): ...
 ```
 
 Route files that fail to import abort startup in production (`STRICT_ROUTES`).
+
+## Configuration & logging
+
+Settings are typed and validated at startup; a bad value (for example `PORT=abc`) stops the app with a message naming the variable.
+
+Set `LOG_JSON=true` (the default when `ENVIRONMENT=production`) for JSON logs. Every request carries an `X-Request-ID` header, which also appears in your logs:
+
+```python
+from runapi import get_request_id
+
+request_id = get_request_id()
+```

@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import RunApiConfig, get_config
 from .errors import ConfigurationError, RouteLoadError, setup_error_handlers
+from .logging import RequestIDMiddleware, configure_logging
 from .middleware import (
     AuthMiddleware,
     CompressionMiddleware,
@@ -159,9 +160,11 @@ class RunApiApp:
                 )
 
     def _setup_logging(self):
-        """Setup logging configuration."""
-        logging.basicConfig(
-            level=getattr(logging, self.config.log_level.upper()), format=self.config.log_format
+        """Setup logging configuration (JSON in production by default)."""
+        configure_logging(
+            self.config.log_level,
+            json_logs=bool(self.config.log_json),
+            text_format=self.config.log_format,
         )
         self.logger = logging.getLogger("runapi")
 
@@ -203,6 +206,9 @@ class RunApiApp:
 
         # Compression middleware
         self.app.add_middleware(CompressionMiddleware)
+
+        # Request ID middleware (added last so it is outermost and covers everything)
+        self.app.add_middleware(RequestIDMiddleware)
 
     def _setup_error_handlers(self):
         """Setup error handlers for the application."""

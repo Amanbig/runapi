@@ -1239,7 +1239,13 @@ def info():
 
 def main():
     """Main entry point for CLI."""
-    app()
+    from .errors import ConfigurationError
+
+    try:
+        app()
+    except ConfigurationError as exc:
+        console.print(f"[red]❌ {exc}[/red]")
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

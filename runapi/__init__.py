@@ -78,6 +78,7 @@ from .errors import (
 )
 
 # Middleware
+from .logging import get_request_id
 from .middleware import (
     AuthMiddleware,
     CompressionMiddleware,
@@ -199,6 +200,7 @@ __all__ = [
     "create_access_token",
     "create_refresh_token",
     "verify_token",
+    "get_request_id",
     "revoke_token",
     "rotate_refresh_token",
     "get_current_user",
