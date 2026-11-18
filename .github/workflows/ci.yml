@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # PRs are checked before merge; the release workflow re-runs the tests on tags.
   pull_request:
     branches: [main]
 
