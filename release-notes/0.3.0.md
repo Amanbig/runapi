@@ -26,6 +26,14 @@ Production hardening and developer-experience release.
 - Fixed type issues found along the way (implicit `Optional` defaults, protocol variance, untyped containers)
 - New tests for CLI generators, `routes`, `schemas`, `info`, `doctor` and error paths; tests now isolate the process environment
 
+### 🧰 Scaffolding & docs
+- **`runapi generate crud <name>`** creates schema, repository, service and REST routes (`GET/POST /name`, `GET/PUT/DELETE /name/{id}`) in one command; it refuses to overwrite existing files
+- Documentation site workflow: builds with `mkdocs build --strict` on PRs and deploys to GitHub Pages from `main` (one-time setup: Settings -> Pages -> Source: GitHub Actions)
+- New docs pages: Configuration (full variable reference) and CRUD scaffolding
+
+### 🐛 Fixes
+- `routes/<folder>/index.py` is now served at `/folder`; it was only reachable at `/folder/` (a bare `/folder` returned a 307 redirect)
+
 ### ⚠️ Behaviour changes
 - `RunApiConfig.validate()` is now `validate_settings()` (it clashed with Pydantic's `BaseModel.validate`)
 - **Security**: the rate limiter no longer trusts `X-Forwarded-For` by default (it could be spoofed to bypass limits). Behind a proxy you control, set `TRUST_PROXY_HEADERS=true`

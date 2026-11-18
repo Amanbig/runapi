@@ -82,3 +82,10 @@ def test_websocket_route(project):
     )
     with _client().websocket_connect("/ws") as ws:
         assert ws.receive_text() == "hello"
+
+
+def test_nested_index_has_no_trailing_slash_redirect(project):
+    _write(project, "routes/users/index.py", "async def get():\n    return {'ok': True}\n")
+    client = TestClient(create_runapi_app().get_app(), follow_redirects=False)
+    assert client.get("/users").status_code == 200
+    assert client.get("/users/").status_code in (200, 307)

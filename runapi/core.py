@@ -319,6 +319,9 @@ class RunApiApp:
             # Extract router or create one
             route_router = getattr(module, "router", APIRouter())
             path = self._get_route_path(route_name)
+            if path == "/" and prefix:
+                # routes/users/index.py -> "/users" (not "/users/", which would redirect)
+                path = ""
 
             # Map HTTP methods to functions
             for method in ["get", "post", "put", "delete", "patch", "head", "options", "trace"]:
