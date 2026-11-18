@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
       - run: pip install "mkdocs>=1.6" "mkdocs-material>=9.5"
       - run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
