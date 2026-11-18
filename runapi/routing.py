@@ -120,3 +120,26 @@ def build_router(module: ModuleType, path: str) -> APIRouter:
     if callable(getattr(module, "websocket", None)):
         router.add_api_websocket_route(path, module.websocket)
     return router
+
+
+def has_handlers(router: APIRouter) -> bool:
+    """True if the router ended up with at least one route."""
+    return bool(router.routes)
+
+
+def misnamed_handlers(module: ModuleType) -> List[str]:
+    """Names that look like HTTP handlers but are not exactly ``get``/``post``/...
+
+    For example ``GET``, ``Get`` or ``get_users``: a common beginner mistake that
+    otherwise silently produces an empty route file.
+    """
+    suspects = []
+    for name, value in vars(module).items():
+        if name.startswith("_") or not callable(value) or name in HTTP_METHODS:
+            continue
+        if getattr(value, "__module__", None) != module.__name__:
+            continue  # imported, not defined here
+        lowered = name.lower()
+        if lowered in HTTP_METHODS or any(lowered.startswith(m + "_") for m in HTTP_METHODS):
+            suspects.append(name)
+    return suspects
