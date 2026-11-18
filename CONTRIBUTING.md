@@ -7,6 +7,8 @@ This guide explains **how to contribute**, **what to work on**, and **what is ex
 
 ---
 
+> New to the codebase? Read [ARCHITECTURE.md](ARCHITECTURE.md) for the module map and where to add things.
+
 ## 🧠 About runapi
 
 **runapi** is an opinionated framework built on top of **FastAPI**, focused on:
