@@ -1,7 +1,10 @@
+import os
+
 from typer.testing import CliRunner
 
 from runapi import __version__
 from runapi.cli import app
+from runapi.config import load_config
 
 runner = CliRunner()
 
@@ -40,7 +43,11 @@ def test_start_refuses_unsafe_production_config(tmp_path, monkeypatch):
     (tmp_path / "main.py").write_text("app = None\n")
     (tmp_path / ".env").write_text("DEBUG=true\nSECRET_KEY=dev-secret-key-change-in-production\n")
     monkeypatch.delenv("SECRET_KEY", raising=False)
-    result = runner.invoke(app, ["start"])
+    try:
+        result = runner.invoke(app, ["start"])
+    finally:
+        # `start` mutates the process environment and the global config; restore both
+        os.environ.pop("ENVIRONMENT", None)
+        load_config()
     assert result.exit_code == 1
     assert "unsafe production configuration" in result.output
-    monkeypatch.delenv("ENVIRONMENT", raising=False)
