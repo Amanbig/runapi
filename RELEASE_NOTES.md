@@ -5,7 +5,7 @@ Production hardening and developer-experience release.
 ### 🛡️ Production hardening
 - **Fail fast**: route files that fail to import now abort startup in production (`STRICT_ROUTES`, on by default when `ENVIRONMENT=production`); in development the full traceback is logged and `app.route_errors` lists them
 - **Safe defaults**: new `ENVIRONMENT` setting (`development` / `production`). `DEBUG` defaults to off in production; `CORS_CREDENTIALS` now defaults to `false`; `*` combined with credentials is rejected
-- **Startup validation**: `config.validate()` flags default/short `SECRET_KEY`, debug in production and wildcard CORS/hosts. Production refuses to start on errors; `runapi start` runs the same checks and `runapi doctor` reports them
+- **Startup validation**: `config.validate_settings()` flags default/short `SECRET_KEY`, debug in production and wildcard CORS/hosts. Production refuses to start on errors; `runapi start` runs the same checks and `runapi doctor` reports them
 - **Health endpoints**: built-in `GET /health` and `GET /ready` (`HEALTH_ENABLED`); register checks with `app.add_readiness_check(name, fn)`. Your own `routes/health.py` takes precedence
 - **Lifecycle hooks**: `@app.on_startup` / `@app.on_shutdown` (sync or async); a custom `lifespan=` is still honoured
 - **Docker**: generated `Dockerfile` is multi-stage, runs as a non-root user and has a `HEALTHCHECK`
@@ -21,7 +21,13 @@ Production hardening and developer-experience release.
 - Pluggable `RateLimitBackend` (`MemoryRateLimitBackend`, `RedisRateLimitBackend`) and `TokenBlacklist` (`RedisTokenBlacklist`) for custom storage. Redis rate limiting fails open; Redis token checks fail closed
 - The in-memory rate limiter now purges expired windows, so memory no longer grows with every client seen
 
+### ✅ Quality gate
+- Type checking with mypy is now clean and **blocks CI**; CI also enforces a minimum test coverage (65%, currently 70%)
+- Fixed type issues found along the way (implicit `Optional` defaults, protocol variance, untyped containers)
+- New tests for CLI generators, `routes`, `schemas`, `info`, `doctor` and error paths; tests now isolate the process environment
+
 ### ⚠️ Behaviour changes
+- `RunApiConfig.validate()` is now `validate_settings()` (it clashed with Pydantic's `BaseModel.validate`)
 - **Security**: the rate limiter no longer trusts `X-Forwarded-For` by default (it could be spoofed to bypass limits). Behind a proxy you control, set `TRUST_PROXY_HEADERS=true`
 - Invalid configuration values now raise an error at startup instead of being ignored. `pydantic-settings>=2.2` is a new dependency
 - Real environment variables now take precedence over values in `.env` (previously `.env` overwrote them) — required for Docker/Kubernetes

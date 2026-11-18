@@ -131,7 +131,7 @@ class RunApiConfig(BaseSettings):
                         key, value = line.split("=", 1)
                         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         """Get custom configuration value."""
         return self.custom.get(key, default)
 
@@ -141,13 +141,13 @@ class RunApiConfig(BaseSettings):
 
     def is_development(self) -> bool:
         """Check if running in development mode."""
-        return self.debug
+        return bool(self.debug)
 
     def is_production(self) -> bool:
         """Check if running in production mode (``ENVIRONMENT=production``)."""
         return self.environment == "production"
 
-    def validate(self) -> Dict[str, List[str]]:
+    def validate_settings(self) -> Dict[str, List[str]]:
         """Check the configuration for risky settings.
 
         Returns ``{"errors": [...], "warnings": [...]}``. Errors are only fatal in

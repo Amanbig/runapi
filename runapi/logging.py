@@ -55,7 +55,9 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def configure_logging(level: str = "INFO", json_logs: bool = False, text_format: str = None):
+def configure_logging(
+    level: str = "INFO", json_logs: bool = False, text_format: Optional[str] = None
+):
     """Configure the root logger (idempotent: replaces handlers it previously installed)."""
     root = logging.getLogger()
     for handler in list(root.handlers):

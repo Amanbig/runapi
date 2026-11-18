@@ -26,7 +26,7 @@ def test_defaults_are_safe(env):
     assert cfg.environment == "development"
     assert cfg.debug is True
     assert cfg.cors_credentials is False
-    assert cfg.validate()["errors"] == []
+    assert cfg.validate_settings()["errors"] == []
 
 
 def test_production_defaults(env):
@@ -41,7 +41,7 @@ def test_validate_flags_problems(env):
     env.setenv("SECRET_KEY", "dev-secret-key-change-in-production")
     env.setenv("CORS_ORIGINS", "*")
     env.setenv("CORS_CREDENTIALS", "true")
-    errors = RunApiConfig().validate()["errors"]
+    errors = RunApiConfig().validate_settings()["errors"]
     assert any("SECRET_KEY" in e for e in errors)
     assert any("CORS" in e for e in errors)
 

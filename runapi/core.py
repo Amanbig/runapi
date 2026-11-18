@@ -115,7 +115,7 @@ class RunApiApp:
         self._readiness_checks[name] = check
 
     def _validate_config(self):
-        result = self.config.validate()
+        result = self.config.validate_settings()
         for warning in result["warnings"]:
             self.logger.warning(f"Config warning: {warning}")
         if not result["errors"]:
@@ -294,7 +294,9 @@ class RunApiApp:
                 full = f"{prefix}{file_path}" if file_path != "/" else (prefix or "/")
                 found.append((item, prefix, full))
 
-    def _load_route_file(self, route_file: Path, prefix: str = "", routes_root: Path = None):
+    def _load_route_file(
+        self, route_file: Path, prefix: str = "", routes_root: Optional[Path] = None
+    ):
         """Load a single route file."""
         try:
             route_name = route_file.stem
@@ -349,12 +351,14 @@ class RunApiApp:
 
     def add_middleware(self, middleware_class: Type[RunApiMiddleware], **kwargs):
         """Add custom middleware to the application."""
-        self.app.add_middleware(middleware_class, **kwargs)
+        self.app.add_middleware(middleware_class, **kwargs)  # type: ignore[arg-type]
         self.middleware_stack.append(middleware_class)
         self.logger.debug(f"Added middleware: {middleware_class.__name__}")
 
     def add_auth_middleware(
-        self, protected_paths: List[str] = None, excluded_paths: List[str] = None
+        self,
+        protected_paths: Optional[List[str]] = None,
+        excluded_paths: Optional[List[str]] = None,
     ):
         """Add JWT authentication middleware."""
         if (
@@ -382,7 +386,7 @@ class RunApiApp:
         """List all registered schema names."""
         return list(SchemaRegistry.get_all().keys())
 
-    def run(self, host: str = None, port: int = None, **uvicorn_kwargs):
+    def run(self, host: Optional[str] = None, port: Optional[int] = None, **uvicorn_kwargs):
         """Run the application with uvicorn."""
         import uvicorn
 

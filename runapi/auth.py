@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 try:
     import bcrypt
 except ImportError:  # pragma: no cover
-    bcrypt = None
+    bcrypt = None  # type: ignore[assignment]
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -24,7 +24,7 @@ class PasswordManager:
     # bcrypt only considers the first 72 bytes of a password
     _MAX_BYTES = 72
 
-    def __init__(self, schemes: list = None, rounds: int = 12):
+    def __init__(self, schemes: Optional[list] = None, rounds: int = 12):
         if bcrypt is None:
             raise ImportError(
                 "bcrypt is required for password hashing. Install with: pip install bcrypt"
@@ -59,7 +59,7 @@ _RESERVED_CLAIMS = ("exp", "iat", "type", "jti")
 class JWTManager:
     """JWT token management utilities using PyJWT."""
 
-    def __init__(self, secret_key: str = None, algorithm: str = "HS256"):
+    def __init__(self, secret_key: Optional[str] = None, algorithm: str = "HS256"):
         self.config = get_config()
         self.secret_key = secret_key or self.config.secret_key
         self.algorithm = algorithm or self.config.jwt_algorithm
@@ -184,7 +184,7 @@ class APIKeyManager:
 class AuthDependencies:
     """FastAPI dependency classes for authentication."""
 
-    def __init__(self, jwt_manager: JWTManager = None):
+    def __init__(self, jwt_manager: Optional[JWTManager] = None):
         self.jwt_manager = jwt_manager or JWTManager()
         self.bearer_scheme = HTTPBearer()
 
@@ -359,7 +359,9 @@ def generate_password(length: int = 12) -> str:
 class TokenResponse:
     """Standard token response format."""
 
-    def __init__(self, access_token: str, refresh_token: str = None, token_type: str = "bearer"):
+    def __init__(
+        self, access_token: str, refresh_token: Optional[str] = None, token_type: str = "bearer"
+    ):
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.token_type = token_type

@@ -39,28 +39,36 @@ class RouteLoadError(RuntimeError):
 class ValidationError(RunApiException):
     """Raised when request validation fails."""
 
-    def __init__(self, message: str = "Validation failed", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Validation failed", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 400, details, "VALIDATION_ERROR")
 
 
 class AuthenticationError(RunApiException):
     """Raised when authentication fails."""
 
-    def __init__(self, message: str = "Authentication required", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Authentication required", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 401, details, "AUTHENTICATION_ERROR")
 
 
 class AuthorizationError(RunApiException):
     """Raised when authorization fails."""
 
-    def __init__(self, message: str = "Insufficient permissions", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Insufficient permissions", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 403, details, "AUTHORIZATION_ERROR")
 
 
 class NotFoundError(RunApiException):
     """Raised when a resource is not found."""
 
-    def __init__(self, message: str = "Resource not found", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Resource not found", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 404, details, "NOT_FOUND_ERROR")
 
 
@@ -68,7 +76,7 @@ class ConflictError(RunApiException):
     """Raised when there's a conflict with the current state."""
 
     def __init__(
-        self, message: str = "Conflict with current state", details: Dict[str, Any] = None
+        self, message: str = "Conflict with current state", details: Optional[Dict[str, Any]] = None
     ):
         super().__init__(message, 409, details, "CONFLICT_ERROR")
 
@@ -76,28 +84,36 @@ class ConflictError(RunApiException):
 class RateLimitError(RunApiException):
     """Raised when rate limit is exceeded."""
 
-    def __init__(self, message: str = "Rate limit exceeded", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Rate limit exceeded", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 429, details, "RATE_LIMIT_ERROR")
 
 
 class ServerError(RunApiException):
     """Raised when an internal server error occurs."""
 
-    def __init__(self, message: str = "Internal server error", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Internal server error", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 500, details, "SERVER_ERROR")
 
 
 class DatabaseError(RunApiException):
     """Raised when database operations fail."""
 
-    def __init__(self, message: str = "Database operation failed", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "Database operation failed", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 500, details, "DATABASE_ERROR")
 
 
 class ExternalServiceError(RunApiException):
     """Raised when external service calls fail."""
 
-    def __init__(self, message: str = "External service error", details: Dict[str, Any] = None):
+    def __init__(
+        self, message: str = "External service error", details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message, 502, details, "EXTERNAL_SERVICE_ERROR")
 
 
@@ -260,7 +276,7 @@ def setup_error_handlers(app, logger: Optional[logging.Logger] = None, debug: bo
 
 
 # Convenience functions
-def raise_validation_error(message: str, details: Dict[str, Any] = None):
+def raise_validation_error(message: str, details: Optional[Dict[str, Any]] = None):
     """Raise a validation error."""
     raise ValidationError(message, details)
 
@@ -291,7 +307,10 @@ def raise_server_error(message: str = "Internal server error"):
 
 
 def create_error_response(
-    message: str, status_code: int = 500, error_code: str = "ERROR", details: Dict[str, Any] = None
+    message: str,
+    status_code: int = 500,
+    error_code: str = "ERROR",
+    details: Optional[Dict[str, Any]] = None,
 ) -> JSONResponse:
     """Create a standard error response."""
     error_response = ErrorResponse(
@@ -301,47 +320,51 @@ def create_error_response(
 
 
 # HTTP status code helpers
-def bad_request(message: str = "Bad request", details: Dict[str, Any] = None) -> JSONResponse:
+def bad_request(
+    message: str = "Bad request", details: Optional[Dict[str, Any]] = None
+) -> JSONResponse:
     """Return a 400 Bad Request response."""
     return create_error_response(message, 400, "BAD_REQUEST", details)
 
 
-def unauthorized(message: str = "Unauthorized", details: Dict[str, Any] = None) -> JSONResponse:
+def unauthorized(
+    message: str = "Unauthorized", details: Optional[Dict[str, Any]] = None
+) -> JSONResponse:
     """Return a 401 Unauthorized response."""
     return create_error_response(message, 401, "UNAUTHORIZED", details)
 
 
-def forbidden(message: str = "Forbidden", details: Dict[str, Any] = None) -> JSONResponse:
+def forbidden(message: str = "Forbidden", details: Optional[Dict[str, Any]] = None) -> JSONResponse:
     """Return a 403 Forbidden response."""
     return create_error_response(message, 403, "FORBIDDEN", details)
 
 
-def not_found(message: str = "Not found", details: Dict[str, Any] = None) -> JSONResponse:
+def not_found(message: str = "Not found", details: Optional[Dict[str, Any]] = None) -> JSONResponse:
     """Return a 404 Not Found response."""
     return create_error_response(message, 404, "NOT_FOUND", details)
 
 
-def conflict(message: str = "Conflict", details: Dict[str, Any] = None) -> JSONResponse:
+def conflict(message: str = "Conflict", details: Optional[Dict[str, Any]] = None) -> JSONResponse:
     """Return a 409 Conflict response."""
     return create_error_response(message, 409, "CONFLICT", details)
 
 
 def unprocessable_entity(
-    message: str = "Unprocessable Entity", details: Dict[str, Any] = None
+    message: str = "Unprocessable Entity", details: Optional[Dict[str, Any]] = None
 ) -> JSONResponse:
     """Return a 422 Unprocessable Entity response."""
     return create_error_response(message, 422, "UNPROCESSABLE_ENTITY", details)
 
 
 def rate_limited(
-    message: str = "Rate limit exceeded", details: Dict[str, Any] = None
+    message: str = "Rate limit exceeded", details: Optional[Dict[str, Any]] = None
 ) -> JSONResponse:
     """Return a 429 Too Many Requests response."""
     return create_error_response(message, 429, "RATE_LIMITED", details)
 
 
 def internal_error(
-    message: str = "Internal server error", details: Dict[str, Any] = None
+    message: str = "Internal server error", details: Optional[Dict[str, Any]] = None
 ) -> JSONResponse:
     """Return a 500 Internal Server Error response."""
     return create_error_response(message, 500, "INTERNAL_ERROR", details)

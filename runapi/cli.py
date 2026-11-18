@@ -110,7 +110,7 @@ def dev(
             import importlib.util
 
             spec = importlib.util.spec_from_file_location("main", "main.py")
-            if spec is None:
+            if spec is None or spec.loader is None:
                 raise ImportError("Cannot load main.py")
             main_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(main_module)
@@ -155,7 +155,7 @@ def start(
     # Load configuration
     config = load_config(config_file)
 
-    problems = config.validate()
+    problems = config.validate_settings()
     for warning in problems["warnings"]:
         console.print(f"[yellow]⚠️  {warning}[/yellow]")
     if problems["errors"] and config.is_production():
@@ -1168,7 +1168,7 @@ def doctor():
     check(Path("main.py").exists(), "main.py found", "run from your project root")
     check(Path("routes").is_dir(), "routes/ directory found", "create a routes/ directory")
     config = load_config()
-    result = config.validate()
+    result = config.validate_settings()
     for error in result["errors"]:
         check(False, "Configuration", error)
     for warning in result["warnings"]:

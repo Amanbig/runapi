@@ -276,11 +276,11 @@ class CORSMiddleware:
 
     def __init__(
         self,
-        allow_origins: List[str] = None,
+        allow_origins: Optional[List[str]] = None,
         allow_credentials: bool = False,
-        allow_methods: List[str] = None,
-        allow_headers: List[str] = None,
-        expose_headers: List[str] = None,
+        allow_methods: Optional[List[str]] = None,
+        allow_headers: Optional[List[str]] = None,
+        expose_headers: Optional[List[str]] = None,
         max_age: int = 600,
     ):
         self.allow_origins = allow_origins or ["*"]
@@ -309,7 +309,10 @@ def create_rate_limit_middleware(app, calls: int = 100, period: int = 60):
 
 
 def create_auth_middleware(
-    app, secret_key: str, protected_paths: List[str] = None, excluded_paths: List[str] = None
+    app,
+    secret_key: str,
+    protected_paths: Optional[List[str]] = None,
+    excluded_paths: Optional[List[str]] = None,
 ):
     """Create authentication middleware."""
     return AuthMiddleware(
@@ -317,13 +320,16 @@ def create_auth_middleware(
     )
 
 
-def create_logging_middleware(app, logger: logging.Logger = None):
+def create_logging_middleware(app, logger: Optional[logging.Logger] = None):
     """Create request logging middleware."""
     return RequestLoggingMiddleware(app, logger=logger)
 
 
 def create_security_middleware(
-    app, include_server: bool = False, csp_policy: str = None, hsts_max_age: int = 31536000
+    app,
+    include_server: bool = False,
+    csp_policy: Optional[str] = None,
+    hsts_max_age: int = 31536000,
 ):
     """Create security headers middleware."""
     return SecurityHeadersMiddleware(
