@@ -1,0 +1,12 @@
+site_name: runapi
+site_description: A Next.js-inspired file-based routing framework built on FastAPI
+repo_url: https://github.com/Amanbig/runapi
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Routing: routing.md
+  - Authentication: auth.md
+  - Database & migrations: database.md
+  - CLI: cli.md
+  - Deployment: deployment.md

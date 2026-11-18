@@ -1171,6 +1171,6 @@ If runapi has been helpful to your project:
 
 **runapi** - Making Python backend development as intuitive as frontend development! 🚀
 
-[Get Started](https://github.com/Amanbig/runapi) | [Documentation](https://github.com/Amanbig/runapi) | [Examples](https://github.com/Amanbig/runapi/tree/main/example)
+[Get Started](https://github.com/Amanbig/runapi) | [Documentation](https://github.com/Amanbig/runapi/tree/main/docs) | [Examples](https://github.com/Amanbig/runapi/tree/main/examples)
 
 </div>

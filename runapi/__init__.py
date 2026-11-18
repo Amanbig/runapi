@@ -33,6 +33,8 @@ from .auth import (
     hash_password,
     require_permissions,
     require_roles,
+    revoke_token,
+    rotate_refresh_token,
     verify_password,
     verify_token,
 )
@@ -193,6 +195,8 @@ __all__ = [
     "create_access_token",
     "create_refresh_token",
     "verify_token",
+    "revoke_token",
+    "rotate_refresh_token",
     "get_current_user",
     "get_current_active_user",
     "require_roles",

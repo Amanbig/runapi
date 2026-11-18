@@ -53,11 +53,16 @@ include = ["runapi", "runapi/py.typed", "README.md", "LICENSE", "pyproject.toml"
 [project.urls]
 Homepage = "https://github.com/Amanbig/runapi"
 Repository = "https://github.com/Amanbig/runapi"
-Documentation = "https://github.com/Amanbig/runapi#readme"
+Documentation = "https://github.com/Amanbig/runapi/tree/main/docs"
 Issues = "https://github.com/Amanbig/runapi/issues"
 Changelog = "https://github.com/Amanbig/runapi/tree/main/release-notes"
 
 [project.optional-dependencies]
+db = [
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "aiosqlite>=0.19",
+]
 dev = [
     "pytest>=7.0.0",
     "httpx>=0.24.0",
@@ -69,6 +74,10 @@ test = [
     "httpx>=0.24.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
 ]
 lint = [
     "ruff>=0.1.0",

@@ -28,6 +28,18 @@
 - WebSocket routes: define `async def websocket(ws)` in a route file
 - `runapi routes` uses the same path rules and shows `WS` endpoints
 
+### Auth
+- **New**: Token revocation (`revoke_token`, pluggable `TokenBlacklist`) and refresh-token rotation (`rotate_refresh_token`); tokens now carry a `jti`
+
+### Database
+- **New**: `runapi db init|migrate|upgrade|downgrade` (Alembic) and `runapi[db]` extra
+
+### CLI
+- **New**: `runapi build` builds a Docker image
+
+### Docs & examples
+- Added `examples/basic` (covered by tests) and a `docs/` site (MkDocs, `runapi[docs]`)
+
 ### Community
 - Added `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS` and GitHub Sponsors `FUNDING.yml`
 
