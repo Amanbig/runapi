@@ -106,6 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      discussions: write # needed to post the release announcement
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -117,4 +118,6 @@ jobs:
           name: v${{ needs.verify.outputs.version }}
           body_path: release-notes/${{ needs.verify.outputs.version }}.md
           prerelease: ${{ needs.verify.outputs.prerelease == 'true' }}
+          # Stable releases are announced in Discussions -> Announcements (not pre-releases)
+          discussion_category_name: ${{ needs.verify.outputs.prerelease == 'false' && 'Announcements' || '' }}
           files: dist/*
