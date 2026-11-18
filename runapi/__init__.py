@@ -40,6 +40,13 @@ from .auth import (
 )
 
 # Configuration
+from .backends import (
+    MemoryRateLimitBackend,
+    RateLimitBackend,
+    RedisRateLimitBackend,
+    RedisTokenBlacklist,
+    TokenBlacklist,
+)
 from .config import RunApiConfig, get_config, load_config
 from .core import RunApiApp, create_app, create_runapi_app
 
@@ -200,6 +207,11 @@ __all__ = [
     "create_access_token",
     "create_refresh_token",
     "verify_token",
+    "RateLimitBackend",
+    "MemoryRateLimitBackend",
+    "RedisRateLimitBackend",
+    "TokenBlacklist",
+    "RedisTokenBlacklist",
     "get_request_id",
     "revoke_token",
     "rotate_refresh_token",

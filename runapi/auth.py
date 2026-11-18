@@ -14,6 +14,7 @@ import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from .backends import RedisTokenBlacklist, TokenBlacklist, uses_redis
 from .config import get_config
 
 
@@ -55,29 +56,6 @@ class PasswordManager:
 _RESERVED_CLAIMS = ("exp", "iat", "type", "jti")
 
 
-class TokenBlacklist:
-    """In-memory store of revoked token ids (``jti``).
-
-    Subclass and override ``add``/``is_revoked`` to back it with Redis or a database
-    when running multiple workers.
-    """
-
-    def __init__(self):
-        self._revoked: Dict[str, float] = {}
-
-    def add(self, jti: str, expires_at: float) -> None:
-        self._purge()
-        self._revoked[jti] = expires_at
-
-    def is_revoked(self, jti: str) -> bool:
-        return jti in self._revoked
-
-    def _purge(self) -> None:
-        now = time.time()
-        for key in [k for k, exp in self._revoked.items() if exp < now]:
-            del self._revoked[key]
-
-
 class JWTManager:
     """JWT token management utilities using PyJWT."""
 
@@ -87,7 +65,8 @@ class JWTManager:
         self.algorithm = algorithm or self.config.jwt_algorithm
         self.access_token_expire = self.config.jwt_expiry
         self.refresh_token_expire = self.config.jwt_refresh_expiry
-        self.blacklist = TokenBlacklist()
+        redis_url = uses_redis(self.config)
+        self.blacklist = RedisTokenBlacklist.from_url(redis_url) if redis_url else TokenBlacklist()
 
         if self.secret_key == "dev-secret-key-change-in-production":
             raise ValueError("Change the SECRET_KEY in production!")

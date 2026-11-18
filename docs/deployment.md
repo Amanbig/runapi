@@ -51,3 +51,18 @@ from runapi import get_request_id
 
 request_id = get_request_id()
 ```
+
+## Multiple workers: Redis
+
+Rate limiting and token revocation are per-process by default. With `WORKERS > 1` (or several containers) share them via Redis:
+
+```bash
+pip install "runapi[redis]"
+```
+
+```env
+CACHE_BACKEND=redis
+REDIS_URL=redis://localhost:6379/0
+```
+
+Behind a reverse proxy you control, also set `TRUST_PROXY_HEADERS=true` so rate limits use the real client IP.

@@ -16,7 +16,13 @@ Production hardening and developer-experience release.
 - **Structured logging**: `LOG_JSON` (on by default in production) emits one JSON object per line; request logs include method, path, status and duration
 - **Request IDs**: every request gets an `X-Request-ID` (an incoming one is honoured), returned in the response and attached to all log lines; use `runapi.get_request_id()` in your code
 
+### 🔁 Shared state with Redis
+- New `runapi[redis]` extra. Set `CACHE_BACKEND=redis` and `REDIS_URL` to share **rate limiting** and **token revocation** across workers and hosts
+- Pluggable `RateLimitBackend` (`MemoryRateLimitBackend`, `RedisRateLimitBackend`) and `TokenBlacklist` (`RedisTokenBlacklist`) for custom storage. Redis rate limiting fails open; Redis token checks fail closed
+- The in-memory rate limiter now purges expired windows, so memory no longer grows with every client seen
+
 ### ⚠️ Behaviour changes
+- **Security**: the rate limiter no longer trusts `X-Forwarded-For` by default (it could be spoofed to bypass limits). Behind a proxy you control, set `TRUST_PROXY_HEADERS=true`
 - Invalid configuration values now raise an error at startup instead of being ignored. `pydantic-settings>=2.2` is a new dependency
 - Real environment variables now take precedence over values in `.env` (previously `.env` overwrote them) — required for Docker/Kubernetes
 - `CORS_CREDENTIALS` defaults to `false`; new projects get explicit localhost CORS origins with credentials enabled

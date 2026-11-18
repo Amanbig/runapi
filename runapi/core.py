@@ -10,6 +10,7 @@ from typing import Any, Callable, List, Optional, Type
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from .backends import RedisRateLimitBackend, uses_redis
 from .config import RunApiConfig, get_config
 from .errors import ConfigurationError, RouteLoadError, setup_error_handlers
 from .logging import RequestIDMiddleware, configure_logging
@@ -191,10 +192,14 @@ class RunApiApp:
 
         # Rate limiting middleware
         if self.config.rate_limit_enabled:
+            redis_url = uses_redis(self.config)
+            backend = RedisRateLimitBackend.from_url(redis_url) if redis_url else None
             self.app.add_middleware(
                 RateLimitMiddleware,
                 calls=self.config.rate_limit_calls,
                 period=self.config.rate_limit_period,
+                backend=backend,
+                trust_proxy_headers=self.config.trust_proxy_headers,
             )
 
         # Security headers middleware

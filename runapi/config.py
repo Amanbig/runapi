@@ -48,7 +48,7 @@ class RunApiConfig(BaseSettings):
     database_echo: bool = False
 
     # Cache settings
-    cache_backend: str = "memory"
+    cache_backend: str = "memory"  # "memory" or "redis" (rate limiting + token revocation)
     redis_url: Optional[str] = None
     cache_ttl: int = Field(300, ge=0)
 
@@ -56,6 +56,8 @@ class RunApiConfig(BaseSettings):
     rate_limit_enabled: bool = False
     rate_limit_calls: int = Field(100, ge=1)
     rate_limit_period: int = Field(60, ge=1)
+    # Trust X-Forwarded-For for client IPs (enable only behind a proxy you control)
+    trust_proxy_headers: bool = False
 
     # Logging
     log_level: str = "INFO"

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import time
@@ -9,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from .backends import MemoryRateLimitBackend, RateLimitBackend
 
 
 class RunApiMiddleware(BaseHTTPMiddleware):
@@ -55,7 +56,7 @@ class RequestLoggingMiddleware(RunApiMiddleware):
 
 
 class RateLimitMiddleware(RunApiMiddleware):
-    """Rate limiting middleware using Fixed Window Counter (O(1))."""
+    """Fixed-window rate limiting with a pluggable backend (memory or Redis)."""
 
     def __init__(
         self,
@@ -63,65 +64,47 @@ class RateLimitMiddleware(RunApiMiddleware):
         calls: int = 100,
         period: int = 60,  # seconds
         key_func: Optional[Callable[[Request], str]] = None,
+        backend: Optional[RateLimitBackend] = None,
+        trust_proxy_headers: bool = False,
     ):
         super().__init__(app)
         self.calls = calls
         self.period = period
+        self.trust_proxy_headers = trust_proxy_headers
         self.key_func = key_func or self._default_key_func
-        # Store: {key: [count, start_time]}
-        self.requests: Dict[str, List[float]] = {}
-        self.lock = asyncio.Lock()
+        self.backend = backend or MemoryRateLimitBackend()
 
     def _default_key_func(self, request: Request) -> str:
-        """Default key function using client IP."""
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+        """Default key: the client IP.
+
+        ``X-Forwarded-For`` is only honoured when ``trust_proxy_headers`` is set (i.e. you
+        run behind a proxy you control); otherwise clients could spoof it to dodge limits.
+        """
+        if self.trust_proxy_headers:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         key = self.key_func(request)
-        current_time = time.time()
+        count, ttl = await self.backend.hit(key, self.period)
 
-        async with self.lock:
-            # Get current window state
-            if key not in self.requests:
-                self.requests[key] = [1, current_time]
-                remaining = self.calls - 1
-                reset_time = current_time + self.period
-            else:
-                count, start_time = self.requests[key]
-
-                if current_time > start_time + self.period:
-                    # New window
-                    self.requests[key] = [1, current_time]
-                    remaining = self.calls - 1
-                    reset_time = current_time + self.period
-                else:
-                    # Current window
-                    if count >= self.calls:
-                        return JSONResponse(
-                            status_code=429,
-                            content={
-                                "error": "Rate limit exceeded",
-                                "message": f"Maximum {self.calls} requests per {self.period} seconds",
-                            },
-                            headers={
-                                "Retry-After": str(int(start_time + self.period - current_time))
-                            },
-                        )
-
-                    self.requests[key][0] += 1
-                    remaining = self.calls - self.requests[key][0]
-                    reset_time = start_time + self.period
+        if count > self.calls:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Rate limit exceeded",
+                    "message": f"Maximum {self.calls} requests per {self.period} seconds",
+                },
+                headers={"Retry-After": str(max(int(ttl), 1))},
+            )
 
         response = await call_next(request)
 
-        # Add rate limit headers
         response.headers["X-RateLimit-Limit"] = str(self.calls)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Reset"] = str(int(reset_time))
-
+        response.headers["X-RateLimit-Remaining"] = str(max(self.calls - count, 0))
+        response.headers["X-RateLimit-Reset"] = str(int(time.time() + ttl))
         return response
 
 

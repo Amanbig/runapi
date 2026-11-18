@@ -59,6 +59,9 @@ Issues = "https://github.com/Amanbig/runapi/issues"
 Changelog = "https://github.com/Amanbig/runapi/tree/main/release-notes"
 
 [project.optional-dependencies]
+redis = [
+    "redis>=5.0",
+]
 db = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",
@@ -75,6 +78,8 @@ test = [
     "httpx>=0.24.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
+    "redis>=5.0",
+    "fakeredis>=2.20",
 ]
 docs = [
     "mkdocs>=1.6",
