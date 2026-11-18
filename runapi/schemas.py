@@ -227,7 +227,7 @@ def _load_schemas_recursive(
 ) -> None:
     """Recursively load schema files from directory structure."""
 
-    for item in schemas_dir.iterdir():
+    for item in sorted(schemas_dir.iterdir()):  # sorted: deterministic collision order
         if item.is_dir():
             # Skip hidden directories and __pycache__
             if item.name.startswith(".") or item.name.startswith("__"):

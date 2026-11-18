@@ -50,6 +50,9 @@ from .backends import (
 from .config import RunApiConfig, get_config, load_config
 from .core import RunApiApp, create_app, create_runapi_app
 
+# Conditional SQLAlchemy import
+from .database import DATABASE_AVAILABLE, Base, Database, check_driver
+
 # Error handling
 from .errors import (
     AuthenticationError,
@@ -132,7 +135,6 @@ from .schemas import (
     ErrorResponse as SchemaErrorResponse,
 )
 
-# Conditional SQLAlchemy import
 if SQLALCHEMY_AVAILABLE:
     from .repository import SQLAlchemyRepository
 else:
@@ -257,6 +259,10 @@ __all__ = [
     "InMemoryRepository",
     "TypedInMemoryRepository",
     "SQLAlchemyRepository",
+    "Database",
+    "Base",
+    "check_driver",
+    "DATABASE_AVAILABLE",
     "RepositoryFactory",
     "create_repository",
     "SQLALCHEMY_AVAILABLE",

@@ -1,0 +1,25 @@
+"""GET /api/items, POST /api/items: a tiny example using the database session."""
+
+from fastapi import Depends
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db import database
+from models.item import Item
+
+
+class ItemCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+async def get(session: AsyncSession = Depends(database.get_session)):
+    result = await session.execute(select(Item).order_by(Item.id))
+    return [{"id": item.id, "name": item.name} for item in result.scalars()]
+
+
+async def post(body: ItemCreate, session: AsyncSession = Depends(database.get_session)):
+    item = Item(name=body.name)
+    session.add(item)
+    await session.flush()  # assigns item.id; the session commits when the request ends
+    return {"id": item.id, "name": item.name}

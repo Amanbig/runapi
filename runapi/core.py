@@ -91,6 +91,12 @@ class RunApiApp:
         self.lifecycle.shutdown_hooks.append(func)
         return func
 
+    def use_database(self, database: Any) -> None:
+        """Connect ``database`` on startup, dispose it on shutdown and add a readiness check."""
+        self.on_startup(database.connect)
+        self.on_shutdown(database.disconnect)
+        self.add_readiness_check("database", database.ping)
+
     def add_readiness_check(self, name: str, check: Callable[[], Any]) -> None:
         """Register a readiness check. It must return truthy (or not raise) when healthy."""
         self.lifecycle.readiness_checks[name] = check
