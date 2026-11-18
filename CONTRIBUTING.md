@@ -206,7 +206,7 @@ Releases are **tag-based**: nothing is published unless a `vX.Y.Z` tag is pushed
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-4. The `Release` workflow verifies the tag is on `main`, runs tests, builds, publishes to PyPI and creates the GitHub Release using the notes file.
+4. The `Release` workflow verifies the tag is on `main`, runs tests, builds, publishes to PyPI, creates the GitHub Release using the notes file, and (for stable versions) posts an announcement in **Discussions → Announcements**.
 
 ---
 
