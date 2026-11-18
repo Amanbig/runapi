@@ -6,35 +6,46 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 try:
-    from passlib.context import CryptContext
-except ImportError:
-    CryptContext = None
+    import bcrypt
+except ImportError:  # pragma: no cover
+    bcrypt = None
 
+import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 
 from .config import get_config
 
 
 class PasswordManager:
-    """Password hashing and verification utilities."""
+    """Password hashing and verification utilities (bcrypt)."""
 
-    def __init__(self, schemes: list = None):
-        if CryptContext is None:
+    # bcrypt only considers the first 72 bytes of a password
+    _MAX_BYTES = 72
+
+    def __init__(self, schemes: list = None, rounds: int = 12):
+        if bcrypt is None:
             raise ImportError(
-                "passlib is required for password hashing. Install with: pip install passlib[bcrypt]"
+                "bcrypt is required for password hashing. Install with: pip install bcrypt"
             )
         self.schemes = schemes or ["bcrypt"]
-        self.pwd_context = CryptContext(schemes=self.schemes, deprecated="auto")
+        if self.schemes != ["bcrypt"]:
+            raise ValueError("Only the 'bcrypt' scheme is supported")
+        self.rounds = rounds
+
+    def _encode(self, password: str) -> bytes:
+        return password.encode("utf-8")[: self._MAX_BYTES]
 
     def hash_password(self, password: str) -> str:
         """Hash a password."""
-        return self.pwd_context.hash(password)
+        return bcrypt.hashpw(self._encode(password), bcrypt.gensalt(self.rounds)).decode("ascii")
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify a password against its hash."""
-        return self.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return bcrypt.checkpw(self._encode(plain_password), hashed_password.encode("ascii"))
+        except ValueError:
+            return False
 
     def generate_random_password(self, length: int = 12) -> str:
         """Generate a random password."""
@@ -42,7 +53,7 @@ class PasswordManager:
 
 
 class JWTManager:
-    """JWT token management utilities using python-jose."""
+    """JWT token management utilities using PyJWT."""
 
     def __init__(self, secret_key: str = None, algorithm: str = "HS256"):
         self.config = get_config()
@@ -83,13 +94,13 @@ class JWTManager:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
 
-            # Check expiration (handled by jose, but double checking payload)
+            # Check expiration (handled by PyJWT, but double checking payload)
             if "exp" in payload and payload["exp"] < time.time():
                 return None
 
             return payload
 
-        except JWTError:
+        except jwt.PyJWTError:
             return None
 
     def create_access_token(
@@ -233,7 +244,7 @@ def hash_password(password: str) -> str:
     manager = _get_password_manager()
     if manager is None:
         raise ImportError(
-            "passlib is required for password hashing. Install with: pip install passlib[bcrypt]"
+            "bcrypt is required for password hashing. Install with: pip install bcrypt"
         )
     return manager.hash_password(password)
 
@@ -243,7 +254,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     manager = _get_password_manager()
     if manager is None:
         raise ImportError(
-            "passlib is required for password hashing. Install with: pip install passlib[bcrypt]"
+            "bcrypt is required for password hashing. Install with: pip install bcrypt"
         )
     return manager.verify_password(plain_password, hashed_password)
 
@@ -294,7 +305,7 @@ def generate_password(length: int = 12) -> str:
     manager = _get_password_manager()
     if manager is None:
         raise ImportError(
-            "passlib is required for password generation. Install with: pip install passlib[bcrypt]"
+            "bcrypt is required for password generation. Install with: pip install bcrypt"
         )
     return manager.generate_random_password(length)
 
